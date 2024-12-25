@@ -15,6 +15,12 @@ jobs:
           channel: 'stable'
           architecture: x64
 
+      # Add this step to set up Java 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+
       - run: flutter pub get
 
       - run: flutter build apk --release
