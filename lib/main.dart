@@ -13,8 +13,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Building Gate Controller',
       theme: ThemeData(
-        primarySwatch: Colors.deepOrange,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
+        textTheme: TextTheme(
+          bodyLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
+        ),
       ),
       home: FirebaseUpdateScreen(),
     );
@@ -28,19 +30,18 @@ class FirebaseUpdateScreen extends StatefulWidget {
 
 class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   bool isDoorOpen = false;
-  bool isLoading = false; // Loading indicator for state change
+  bool isLoading = false;
 
   Future<void> toggleDoorState() async {
     setState(() {
       isLoading = true;
     });
 
-    // Toggle the door state
     String doorState = isDoorOpen ? "ON" : "OFF";
 
-    // Update Firebase JSON
     final response = await http.put(
-      Uri.parse('https://microiot.firebaseio.com/users/1BEy97EhEObAeP7U6s4CFM66IPr2/devices/D.json?auth=VSV5R6QkmXOT12rrR6fuawILTpJdM8GjUQhiyShM'),
+      Uri.parse(
+          'https://microiot.firebaseio.com/users/1BEy97EhEObAeP7U6s4CFM66IPr2/devices/D.json?auth=VSV5R6QkmXOT12rrR6fuawILTpJdM8GjUQhiyShM'),
       body: jsonEncode({
         'apikey': "D",
         'changedby': "ahmed hashem",
@@ -59,7 +60,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
 
     setState(() {
       isLoading = false;
-      isDoorOpen = !isDoorOpen; // Toggle state
+      isDoorOpen = !isDoorOpen;
     });
   }
 
@@ -81,8 +82,6 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
           'Building Gate Controller',
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.deepOrangeAccent,
-        elevation: 8.0,
         centerTitle: true,
       ),
       body: Padding(
@@ -101,7 +100,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
             ),
             SizedBox(height: 20),
             Text(
-              'Press the button below to open or close the gate. The state of the door will automatically update.',
+              'Press the button below to open or close the gate.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -109,56 +108,42 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 40),
-            AnimatedSwitcher(
-              duration: Duration(milliseconds: 300),
-              child: ElevatedButton(
-                onPressed: isLoading ? null : toggleDoorState, // Disable button while loading
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isDoorOpen ? Colors.green[700] : Colors.red[700], // Green when open, red when closed
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(horizontal: 40.0, vertical: 18.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(50), // More rounded button for a soft feel
+            ElevatedButton(
+              onPressed: isLoading ? null : toggleDoorState,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDoorOpen ? Colors.green : Colors.red,
+                padding: EdgeInsets.symmetric(horizontal: 40.0, vertical: 18.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(50),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isLoading
+                        ? Icons.hourglass_empty
+                        : (isDoorOpen ? Icons.lock_open : Icons.lock),
+                    size: 28,
+                    color: Colors.white,
                   ),
-                  elevation: 10,
-                  shadowColor: Colors.grey[400],
-                  textStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isLoading
-                          ? Icons.hourglass_empty
-                          : (isDoorOpen ? Icons.lock_open : Icons.lock),
-                      size: 28,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 20),
-                    Text(
-                      isLoading
-                          ? 'Processing...'
-                          : (isDoorOpen ? 'Close Door' : 'Open Door'),
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
+                  SizedBox(width: 20),
+                  Text(
+                    isLoading
+                        ? 'Processing...'
+                        : (isDoorOpen ? 'Close Door' : 'Open Door'),
+                    style: TextStyle(fontSize: 20, color: Colors.white),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 40),
-            AnimatedSwitcher(
-              duration: Duration(milliseconds: 300),
-              child: Text(
-                'Current Door State: ${isDoorOpen ? "Open" : "Closed"}',
-                key: ValueKey<bool>(isDoorOpen),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: isDoorOpen ? Colors.green : Colors.red,
-                ),
+            Text(
+              'Current Door State: ${isDoorOpen ? "Open" : "Closed"}',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: isDoorOpen ? Colors.green : Colors.red,
               ),
             ),
           ],
