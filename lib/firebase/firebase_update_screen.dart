@@ -155,6 +155,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final colors = theme.extension<AppColors>()!;
 
     return Scaffold(
       appBar: AppBar(
@@ -202,186 +203,195 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
           ),
         ],
       ),
-      body: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // حالة الاتصال
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: _connectionStatus == 'متصل'
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: _connectionStatus == 'متصل'
-                      ? Colors.green
-                      : Colors.red,
-                  width: 1,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.lg),
+          child: Column(
+            children: [
+              _connectionPill(colors),
+              const SizedBox(height: AppSpacing.xl),
+              _heroRing(colors),
+              const SizedBox(height: AppSpacing.lg),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 350),
+                style: theme.textTheme.titleLarge!.copyWith(
+                  color: _gateStatus ? colors.success : colors.danger,
+                  fontWeight: FontWeight.bold,
                 ),
+                child: Text(_gateStatus ? 'البوابة مفتوحة' : 'البوابة مغلقة'),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _connectionStatus == 'متصل'
-                        ? Icons.wifi
-                        : Icons.wifi_off,
-                    color: _connectionStatus == 'متصل'
-                        ? Colors.green
-                        : Colors.red,
-                    size: 20,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    _connectionStatus,
-                    style: TextStyle(
-                      color: _connectionStatus == 'متصل'
-                          ? Colors.green
-                          : Colors.red,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _gateStatus
+                    ? 'اضغط للإغلاق'
+                    : 'اضغط للفتح',
+                style: theme.textTheme.labelMedium,
               ),
-            ),
-
-            SizedBox(height: 40),
-
-            // أيقونة البوابة
-            Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: _gateStatus
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: _gateStatus ? Colors.green : Colors.red,
-                  width: 3,
-                ),
-              ),
-              child: Icon(
-                _gateStatus ? Icons.lock_open : Icons.lock,
-                size: 80,
-                color: _gateStatus ? Colors.green : Colors.red,
-              ),
-            ),
-
-            SizedBox(height: 30),
-
-            // حالة البوابة
-            Text(
-              _gateStatus ? 'البوابة مفتوحة' : 'البوابة مغلقة',
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: _gateStatus ? Colors.green : Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            SizedBox(height: 50),
-
-            // زر التحكم
-            SizedBox(
-              width: double.infinity,
-              height: 60,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _toggleGate,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _gateStatus
-                      ? Colors.red
-                      : Colors.green,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-                child: _isLoading
-                    ? SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-                    : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _gateStatus ? Icons.lock : Icons.lock_open,
-                      size: 24,
-                    ),
-                    SizedBox(width: 12),
-                    Text(
-                      _gateStatus ? 'إغلاق البوابة' : 'فتح البوابة',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 30),
-
-            // معلومات إضافية
-            SectionCard(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, color: colorScheme.primary),
-                      SizedBox(width: 8),
-                      Text(
-                        'معلومات النظام',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  _buildInfoRow('حالة الاتصال', _connectionStatus),
-                  _buildInfoRow('حالة البوابة', _gateStatus ? 'مفتوحة' : 'مغلقة'),
-                  _buildInfoRow('تحديث تلقائي', 'كل 3 ثواني'),
-                ],
-              ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.xl),
+              _toggleButton(colors),
+              const SizedBox(height: AppSpacing.lg),
+              _infoCard(theme, colorScheme),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+  Widget _connectionPill(AppColors colors) {
+    final connected = _connectionStatus == 'متصل';
+    final c = connected ? colors.success : colors.danger;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: Border.all(color: c.withValues(alpha: 0.4)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              color: Colors.grey[600],
-            ),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: c, shape: BoxShape.circle),
           ),
+          const SizedBox(width: AppSpacing.sm),
           Text(
-            value,
+            _connectionStatus,
             style: TextStyle(
+              color: c,
               fontWeight: FontWeight.w600,
+              fontSize: 13,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroRing(AppColors colors) {
+    final main = _gateStatus ? colors.success : colors.danger;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      width: 210,
+      height: 210,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            main.withValues(alpha: 0.20),
+            main.withValues(alpha: 0.04),
+          ],
+        ),
+        border: Border.all(color: main.withValues(alpha: 0.55), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: main.withValues(alpha: _gateStatus ? 0.35 : 0.15),
+            blurRadius: _gateStatus ? 44 : 20,
+            spreadRadius: _gateStatus ? 2 : 0,
+          ),
+        ],
+      ),
+      child: Center(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, anim) =>
+              ScaleTransition(scale: anim, child: child),
+          child: Icon(
+            _gateStatus ? Icons.lock_open_rounded : Icons.lock_rounded,
+            key: ValueKey(_gateStatus),
+            size: 80,
+            color: main,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _toggleButton(AppColors colors) {
+    // Button reflects the ACTION: close when open, open when closed.
+    final action = _gateStatus ? colors.danger : colors.success;
+    return Container(
+      width: double.infinity,
+      height: 64,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        boxShadow: _isLoading
+            ? null
+            : [
+                BoxShadow(
+                  color: action.withValues(alpha: 0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+      ),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _toggleGate,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: action,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: action.withValues(alpha: 0.5),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(_gateStatus ? Icons.lock_rounded
+                      : Icons.lock_open_rounded, size: 24),
+                  const SizedBox(width: AppSpacing.sm + 4),
+                  Text(
+                    _gateStatus ? 'إغلاق البوابة' : 'فتح البوابة',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _infoCard(ThemeData theme, ColorScheme colorScheme) {
+    return SectionCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'معلومات النظام',
+                style: theme.textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          InfoRow(label: 'حالة الاتصال', value: _connectionStatus),
+          InfoRow(
+              label: 'حالة البوابة',
+              value: _gateStatus ? 'مفتوحة' : 'مغلقة'),
+          const InfoRow(label: 'تحديث تلقائي', value: 'كل 3 ثواني'),
         ],
       ),
     );
