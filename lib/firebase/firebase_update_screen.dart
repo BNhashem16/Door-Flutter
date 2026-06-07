@@ -3,14 +3,27 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 
+import '../admin/admin_screen.dart';
+import '../auth/auth_service.dart';
+import '../profile/profile_screen.dart';
+import '../theme/app_theme.dart';
+import '../widgets/initials_avatar.dart';
+import '../widgets/section_card.dart';
+
 class FirebaseUpdateScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final bool isDarkMode;
+  final AuthService authService;
+  final bool isAdmin;
+  final String userName;
 
   const FirebaseUpdateScreen({
     Key? key,
     required this.onThemeToggle,
     required this.isDarkMode,
+    required this.authService,
+    this.isAdmin = false,
+    this.userName = '',
   }) : super(key: key);
 
   @override
@@ -145,23 +158,47 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'تحكم البوابة',
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: colorScheme.onPrimary,
+        title: const Text('تحكم البوابة'),
+        leading: Padding(
+          padding: const EdgeInsets.only(right: AppSpacing.sm),
+          child: IconButton(
+            tooltip: 'الملف الشخصي',
+            icon: InitialsAvatar(
+              name: widget.userName,
+              seed: widget.authService.currentUser?.uid ?? '',
+              size: 34,
+            ),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    ProfileScreen(authService: widget.authService),
+              ),
+            ),
           ),
         ),
-        backgroundColor: colorScheme.primary,
-        centerTitle: true,
-        elevation: 0,
         actions: [
+          if (widget.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              tooltip: 'إدارة المستخدمين',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      AdminScreen(authService: widget.authService),
+                ),
+              ),
+            ),
           IconButton(
             icon: Icon(
               widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-              color: colorScheme.onPrimary,
             ),
             onPressed: widget.onThemeToggle,
             tooltip: widget.isDarkMode ? 'الوضع المضيء' : 'الوضع المظلم',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'تسجيل الخروج',
+            onPressed: widget.authService.signOut,
           ),
         ],
       ),
@@ -296,30 +333,28 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
             SizedBox(height: 30),
 
             // معلومات إضافية
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline, color: colorScheme.primary),
-                        SizedBox(width: 8),
-                        Text(
-                          'معلومات النظام',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+            SectionCard(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: colorScheme.primary),
+                      SizedBox(width: 8),
+                      Text(
+                        'معلومات النظام',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
-                    _buildInfoRow('حالة الاتصال', _connectionStatus),
-                    _buildInfoRow('حالة البوابة', _gateStatus ? 'مفتوحة' : 'مغلقة'),
-                    _buildInfoRow('تحديث تلقائي', 'كل 3 ثواني'),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  _buildInfoRow('حالة الاتصال', _connectionStatus),
+                  _buildInfoRow('حالة البوابة', _gateStatus ? 'مفتوحة' : 'مغلقة'),
+                  _buildInfoRow('تحديث تلقائي', 'كل 3 ثواني'),
+                ],
               ),
             ),
           ],

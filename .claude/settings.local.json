@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter build *)",
+      "Bash(powershell *)",
+      "mcp__plugin_context-mode_context-mode__ctx_execute_file",
+      "Bash(firebase login:list)",
+      "Bash(firebase projects:list)",
+      "Bash(dart pub *)",
+      "Bash(firebase --version)",
+      "Bash(gcloud --version)",
+      "Bash(gcloud auth *)",
+      "Bash(firebase use *)",
+      "Bash(firebase deploy *)",
+      "Bash(firebase auth:export /tmp/users.json --format=json --project project-5203370022845167706)"
+    ],
+    "defaultMode": "bypassPermissions"
+  }
+}

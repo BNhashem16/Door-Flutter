@@ -1,0 +1,77 @@
+{
+  "project_info": {
+    "project_number": "672403264935",
+    "firebase_url": "https://microiot.firebaseio.com",
+    "project_id": "project-5203370022845167706",
+    "storage_bucket": "project-5203370022845167706.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:672403264935:android:1e05953cfd1b6d2af01282",
+        "android_client_info": {
+          "package_name": "com.example.project"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "672403264935-4910hh4k7qk036evg6vrep23lb33en03.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAGD4RXZ4EclrG6pyV-3YS_Nno4BkG458"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "672403264935-4910hh4k7qk036evg6vrep23lb33en03.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:672403264935:android:69c8b1b1794bcca1",
+        "android_client_info": {
+          "package_name": "com.temp.micro"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "672403264935-ig2k5l57j1t1m9vpbdgcc3sor63g9uhj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.temp.micro",
+            "certificate_hash": "ec21d7d12d2784a9ec8a3f65bad9a2a55c1be675"
+          }
+        },
+        {
+          "client_id": "672403264935-4910hh4k7qk036evg6vrep23lb33en03.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAGD4RXZ4EclrG6pyV-3YS_Nno4BkG458"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "672403264935-4910hh4k7qk036evg6vrep23lb33en03.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

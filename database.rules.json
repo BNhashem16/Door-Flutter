@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "app_users": {
+      ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && ((auth.uid === $uid && !data.exists() && newData.child('role').val() === 'user' && newData.child('status').val() === 'pending') || (auth.uid === $uid && data.exists() && newData.child('role').val() === data.child('role').val() && newData.child('status').val() === data.child('status').val() && newData.child('email').val() === data.child('email').val() && newData.child('createdAt').val() === data.child('createdAt').val()) || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        ".validate": "newData.hasChildren(['email', 'name', 'role', 'status', 'createdAt'])"
+      }
+    },
+    "users": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
