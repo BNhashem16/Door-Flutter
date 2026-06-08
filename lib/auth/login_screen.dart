@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import 'auth_service.dart';
 import 'register_screen.dart';
 
@@ -37,9 +38,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       // AuthGate reacts to the auth state change automatically.
     } on FirebaseAuthException catch (e) {
-      _showError(_messageFor(e));
+      if (!mounted) return;
+      _showError(AppStrings.of(context).signInError(e.code));
     } catch (_) {
-      _showError('حدث خطأ غير متوقع');
+      if (!mounted) return;
+      _showError(AppStrings.of(context).unexpectedError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -52,17 +55,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  String _messageFor(FirebaseAuthException e) => switch (e.code) {
-        'invalid-email' => 'البريد الإلكتروني غير صحيح',
-        'user-disabled' => 'تم تعطيل هذا الحساب',
-        'user-not-found' || 'wrong-password' || 'invalid-credential' =>
-          'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-        _ => 'فشل تسجيل الدخول',
-      };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = AppStrings.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -76,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(Icons.meeting_room,
                       size: 72, color: theme.colorScheme.primary),
                   const SizedBox(height: 16),
-                  Text('تسجيل الدخول',
+                  Text(s.loginTitle,
                       style: theme.textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 32),
@@ -84,13 +80,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
                     textDirection: TextDirection.ltr,
-                    decoration: const InputDecoration(
-                      labelText: 'البريد الإلكتروني',
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      labelText: s.email,
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
-                    validator: (v) => (v == null || !v.contains('@'))
-                        ? 'أدخل بريدًا إلكترونيًا صحيحًا'
-                        : null,
+                    validator: (v) =>
+                        (v == null || !v.contains('@')) ? s.emailInvalid : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -98,18 +93,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: _obscure,
                     textDirection: TextDirection.ltr,
                     decoration: InputDecoration(
-                      labelText: 'كلمة المرور',
+                      labelText: s.password,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscure
-                            ? Icons.visibility_off
-                            : Icons.visibility),
+                        icon: Icon(
+                            _obscure ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _obscure = !_obscure),
                       ),
                     ),
-                    validator: (v) => (v == null || v.length < 6)
-                        ? 'كلمة المرور 6 أحرف على الأقل'
-                        : null,
+                    validator: (v) =>
+                        (v == null || v.length < 6) ? s.passwordTooShort : null,
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
@@ -123,7 +116,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 22,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('دخول', style: TextStyle(fontSize: 16)),
+                          : Text(s.signInButton,
+                              style: const TextStyle(fontSize: 16)),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -136,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     authService: widget.authService),
                               ),
                             ),
-                    child: const Text('ليس لديك حساب؟ سجّل الآن'),
+                    child: Text(s.noAccountRegister),
                   ),
                 ],
               ),

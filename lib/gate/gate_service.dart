@@ -1,35 +1,79 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
 
-/// Single source of truth for gate state read/toggle over Firebase REST.
+/// Single source of truth for gate state read/toggle.
 ///
-/// Used by both the in-app control screen and the home-screen widget
-/// background callback, so the HTTP contract lives in exactly one place.
+/// Two transports, one contract:
+/// - In-app UI uses the **Realtime Database SDK** (`watchState` / `setOpen`)
+///   so the screen stays continuously in sync with the database — no polling.
+/// - The home-screen widget background callback runs headless (no
+///   `Firebase.initializeApp`, no signed-in user) so it falls back to the
+///   **REST** endpoint with the embedded device token (`fetchState` /
+///   `toggle`).
 class GateService {
   GateService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
+  /// RTDB instance host shared with [AuthService].
+  static const String _databaseUrl = 'https://microiot.firebaseio.com';
+
+  /// Path to the gate device node inside the Realtime Database.
+  static const String _gatePath =
+      'users/1BEy97EhEObAeP7U6s4CFM66IPr2/devices/D';
+
   /// Firebase RTDB REST endpoint for the gate device. Token is embedded
-  /// (intentional config, same as the legacy in-app screen).
+  /// (intentional config, used only by the headless widget callback).
   static const String _url =
-      'https://microiot.firebaseio.com/users/1BEy97EhEObAeP7U6s4CFM66IPr2/devices/D.json?auth=VSV5R6QkmXOT12rrR6fuawILTpJdM8GjUQhiyShM';
+      '$_databaseUrl/$_gatePath.json?auth=VSV5R6QkmXOT12rrR6fuawILTpJdM8GjUQhiyShM';
 
   static const Duration _timeout = Duration(seconds: 10);
+
+  DatabaseReference _gateRef() => FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: _databaseUrl,
+      ).ref(_gatePath);
+
+  /// Maps a raw gate node value to open/closed. `true` = open (state == ON).
+  static bool _isOpen(Object? data) =>
+      data is Map && data['state'] != null && data['state'] == 'ON';
+
+  /// Live gate state from the Realtime Database. Emits on every change so the
+  /// UI mirrors the database instantly. Errors propagate so callers can show a
+  /// disconnected state. Requires a signed-in user (security rules).
+  Stream<bool> watchState() {
+    final ref = _gateRef();
+    // Keep the node warm so it emits from cache immediately on next launch.
+    unawaited(ref.keepSynced(true));
+    return ref.onValue.map((event) => _isOpen(event.snapshot.value));
+  }
+
+  /// Writes the gate state via the SDK and returns [open]. Throws on failure.
+  Future<bool> setOpen(bool open) async {
+    await _gateRef().update({
+      'apikey': 'D',
+      'changedby': 'ahmed hashem',
+      'state': open ? 'ON' : 'OFF',
+      'name': 'Door',
+      'timestamp': ServerValue.timestamp,
+      'type': 'Motor',
+    });
+    return open;
+  }
 
   /// Reads current gate state. `true` = open (ON), `false` = closed (OFF).
   /// Throws on network / non-200 so callers can surface a disconnected state.
   Future<bool> fetchState() async {
-    final response =
-        await _client.get(Uri.parse(_url)).timeout(_timeout);
+    final response = await _client.get(Uri.parse(_url)).timeout(_timeout);
     if (response.statusCode != 200) {
-      throw http.ClientException('status ${response.statusCode}', Uri.parse(_url));
+      throw http.ClientException(
+          'status ${response.statusCode}', Uri.parse(_url));
     }
-    final data = jsonDecode(response.body);
-    if (data is Map && data['state'] != null) {
-      return data['state'] == 'ON';
-    }
-    return false;
+    return _isOpen(jsonDecode(response.body));
   }
 
   /// Flips the gate. Sends the opposite of [currentOpen] and returns the
@@ -51,7 +95,8 @@ class GateService {
         )
         .timeout(_timeout);
     if (response.statusCode != 200) {
-      throw http.ClientException('status ${response.statusCode}', Uri.parse(_url));
+      throw http.ClientException(
+          'status ${response.statusCode}', Uri.parse(_url));
     }
     return newOpen;
   }

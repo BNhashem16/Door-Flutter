@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import 'auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -41,9 +42,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // New accounts are pending; AuthGate shows the pending screen.
       Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
-      _showError(_messageFor(e));
+      if (!mounted) return;
+      _showError(AppStrings.of(context).registerError(e.code));
     } catch (_) {
-      _showError('حدث خطأ غير متوقع');
+      if (!mounted) return;
+      _showError(AppStrings.of(context).unexpectedError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -56,18 +59,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  String _messageFor(FirebaseAuthException e) => switch (e.code) {
-        'email-already-in-use' => 'هذا البريد مسجّل بالفعل',
-        'invalid-email' => 'البريد الإلكتروني غير صحيح',
-        'weak-password' => 'كلمة المرور ضعيفة',
-        _ => 'فشل إنشاء الحساب',
-      };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = AppStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('إنشاء حساب')),
+      appBar: AppBar(title: Text(s.registerTitle)),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -82,26 +79,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 24),
                   TextFormField(
                     controller: _nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'الاسم',
-                      prefixIcon: Icon(Icons.person_outline),
+                    decoration: InputDecoration(
+                      labelText: s.name,
+                      prefixIcon: const Icon(Icons.person_outline),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'أدخل اسمك'
-                        : null,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? s.enterName : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
                     textDirection: TextDirection.ltr,
-                    decoration: const InputDecoration(
-                      labelText: 'البريد الإلكتروني',
-                      prefixIcon: Icon(Icons.email_outlined),
+                    decoration: InputDecoration(
+                      labelText: s.email,
+                      prefixIcon: const Icon(Icons.email_outlined),
                     ),
-                    validator: (v) => (v == null || !v.contains('@'))
-                        ? 'أدخل بريدًا إلكترونيًا صحيحًا'
-                        : null,
+                    validator: (v) =>
+                        (v == null || !v.contains('@')) ? s.emailInvalid : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -109,18 +104,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     obscureText: _obscure,
                     textDirection: TextDirection.ltr,
                     decoration: InputDecoration(
-                      labelText: 'كلمة المرور',
+                      labelText: s.password,
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscure
-                            ? Icons.visibility_off
-                            : Icons.visibility),
+                        icon: Icon(
+                            _obscure ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _obscure = !_obscure),
                       ),
                     ),
-                    validator: (v) => (v == null || v.length < 6)
-                        ? 'كلمة المرور 6 أحرف على الأقل'
-                        : null,
+                    validator: (v) =>
+                        (v == null || v.length < 6) ? s.passwordTooShort : null,
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
@@ -134,8 +127,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               height: 22,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('تسجيل',
-                              style: TextStyle(fontSize: 16)),
+                          : Text(s.registerButton,
+                              style: const TextStyle(fontSize: 16)),
                     ),
                   ),
                 ],

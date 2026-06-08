@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -117,7 +119,11 @@ class AuthService {
 
   /// Live profile stream for an authenticated user.
   Stream<AppUser?> userProfile(String uid) {
-    return _userRef(uid).onValue.map((event) {
+    final ref = _userRef(uid);
+    // Keep this node warm in the local cache so it emits instantly on the next
+    // launch instead of waiting on the network.
+    unawaited(ref.keepSynced(true));
+    return ref.onValue.map((event) {
       final value = event.snapshot.value;
       if (value is! Map) return null;
       return AppUser.fromMap(uid, value);
@@ -197,11 +203,48 @@ class AuthService {
 
   /// Admin: change a user's approval status.
   Future<void> setStatus(String uid, UserStatus status) {
-    final raw = switch (status) {
-      UserStatus.approved => 'approved',
-      UserStatus.rejected => 'rejected',
-      _ => 'pending',
-    };
-    return _userRef(uid).update({'status': raw});
+    return _userRef(uid).update({'status': _statusRaw(status)});
   }
+
+  /// Admin: promote/demote a user's role.
+  Future<void> setRole(String uid, UserRole role) {
+    return _userRef(uid).update({'role': _roleRaw(role)});
+  }
+
+  /// Admin: full edit of a user's profile, including the admin-only fields
+  /// (`role`/`status`). `email`/`createdAt` stay immutable — they are left out
+  /// of the patch so the RTDB `.validate` still sees them on the merged node.
+  Future<void> adminUpdateUser(
+    String uid, {
+    required String name,
+    required String apartment,
+    required String bio,
+    required UserRole role,
+    required UserStatus status,
+  }) {
+    return _userRef(uid).update({
+      'name': name.trim(),
+      'apartment': apartment.trim(),
+      'bio': bio.trim(),
+      'role': _roleRaw(role),
+      'status': _statusRaw(status),
+    });
+  }
+
+  /// Admin: delete a user's profile record.
+  ///
+  /// NOTE: this removes the RTDB profile only. The underlying Firebase Auth
+  /// account cannot be deleted from the client — that needs the Admin SDK
+  /// (a Cloud Function). After this, the user falls back to the pending screen
+  /// if still signed in elsewhere, and can no longer reach the gate.
+  Future<void> deleteUser(String uid) => _userRef(uid).remove();
+
+  static String _roleRaw(UserRole role) =>
+      role == UserRole.admin ? 'admin' : 'user';
+
+  static String _statusRaw(UserStatus status) => switch (status) {
+        UserStatus.approved => 'approved',
+        UserStatus.rejected => 'rejected',
+        _ => 'pending',
+      };
 }

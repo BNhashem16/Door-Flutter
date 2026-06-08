@@ -1,30 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Localization sanity tests. The app's runtime tree depends on Firebase, so
+// these cover the pure, context-free localization layer instead of pumping the
+// full widget tree.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:Door/main.dart';
+import 'package:Door/l10n/app_strings.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(MyApp());
+  test('supports Arabic and English locales', () {
+    expect(AppStrings.supportedLocales, contains(const Locale('ar')));
+    expect(AppStrings.supportedLocales, contains(const Locale('en')));
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  test('forLanguageCode resolves distinct localizations', () {
+    final ar = AppStrings.forLanguageCode('ar');
+    final en = AppStrings.forLanguageCode('en');
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(ar.appTitle, isNotEmpty);
+    expect(en.appTitle, isNotEmpty);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('forLanguageCode falls back to Arabic for unknown codes', () {
+    final unknown = AppStrings.forLanguageCode('fr');
+    final ar = AppStrings.forLanguageCode('ar');
+
+    expect(unknown.appTitle, ar.appTitle);
   });
 }

@@ -4,78 +4,77 @@ import 'dart:async';
 import '../admin/admin_screen.dart';
 import '../auth/auth_service.dart';
 import '../gate/gate_service.dart';
+import '../l10n/app_strings.dart';
 import '../profile/profile_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/section_card.dart';
 
+/// Connection state of the live gate stream (locale-independent).
+enum _Conn { connecting, connected, disconnected }
+
 class FirebaseUpdateScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final bool isDarkMode;
+  final VoidCallback onLocaleToggle;
   final AuthService authService;
   final bool isAdmin;
   final String userName;
 
   const FirebaseUpdateScreen({
-    Key? key,
+    super.key,
     required this.onThemeToggle,
     required this.isDarkMode,
+    required this.onLocaleToggle,
     required this.authService,
     this.isAdmin = false,
     this.userName = '',
-  }) : super(key: key);
+  });
 
   @override
-  _FirebaseUpdateScreenState createState() => _FirebaseUpdateScreenState();
+  State<FirebaseUpdateScreen> createState() => _FirebaseUpdateScreenState();
 }
 
 class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
-  bool _gateStatus = false; // false = مغلق, true = مفتوح
+  bool _gateStatus = false; // false = closed, true = open
   bool _isLoading = false;
-  String _connectionStatus = 'متصل';
-  Timer? _statusCheckTimer;
+  bool _hasState = false; // first snapshot received?
+  _Conn _conn = _Conn.connecting;
 
   final GateService _gate = GateService();
+  StreamSubscription<bool>? _stateSub;
 
   @override
   void initState() {
     super.initState();
-    _fetchInitialStatus();
-    _setupRealtimeListener();
+    _listenToGate();
   }
 
   @override
   void dispose() {
-    _statusCheckTimer?.cancel();
+    _stateSub?.cancel();
     _gate.dispose();
     super.dispose();
   }
 
-  void _setupRealtimeListener() {
-    // فحص حالة البوابة كل 3 ثواني للحصول على تحديث شبه فوري
-    _statusCheckTimer = Timer.periodic(Duration(seconds: 3), (timer) {
-      _fetchCurrentStatus();
-    });
-  }
-
-  Future<void> _fetchInitialStatus() async {
-    await _fetchCurrentStatus();
-  }
-
-  Future<void> _fetchCurrentStatus() async {
-    try {
-      final open = await _gate.fetchState();
-      if (!mounted) return;
-      setState(() {
-        _gateStatus = open;
-        _connectionStatus = 'متصل';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _connectionStatus = 'غير متصل';
-      });
-    }
+  /// Continuously mirror the database: every gate change pushes here live.
+  void _listenToGate() {
+    _stateSub = _gate.watchState().listen(
+      (open) {
+        if (!mounted) return;
+        setState(() {
+          _gateStatus = open;
+          _hasState = true;
+          _conn = _Conn.connected;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _conn = _Conn.disconnected;
+        });
+      },
+    );
   }
 
   Future<void> _toggleGate() async {
@@ -84,20 +83,20 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     });
 
     try {
-      final newOpen = await _gate.toggle(currentOpen: _gateStatus);
+      // Write only — the live stream reflects the new state back to the UI.
+      final newOpen = await _gate.setOpen(!_gateStatus);
       if (!mounted) return;
-      _showSuccessSnackBar(newOpen ? 'تم فتح البوابة' : 'تم إغلاق البوابة');
-      setState(() {
-        _gateStatus = newOpen;
-      });
+      final s = AppStrings.of(context);
+      _showSuccessSnackBar(newOpen ? s.gateOpened : s.gateClosedMsg);
     } catch (error) {
       if (!mounted) return;
-      _showErrorSnackBar('خطأ في الاتصال: $error');
+      _showErrorSnackBar(AppStrings.of(context).connectionError(error));
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -128,14 +127,15 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final colors = theme.extension<AppColors>()!;
+    final s = AppStrings.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تحكم البوابة'),
+        title: Text(s.gateTitle),
         leading: Padding(
-          padding: const EdgeInsets.only(right: AppSpacing.sm),
+          padding: const EdgeInsetsDirectional.only(start: AppSpacing.sm),
           child: IconButton(
-            tooltip: 'الملف الشخصي',
+            tooltip: s.profileTooltip,
             icon: InitialsAvatar(
               name: widget.userName,
               seed: widget.authService.currentUser?.uid ?? '',
@@ -143,8 +143,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
             ),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) =>
-                    ProfileScreen(authService: widget.authService),
+                builder: (_) => ProfileScreen(authService: widget.authService),
               ),
             ),
           ),
@@ -153,24 +152,28 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
           if (widget.isAdmin)
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),
-              tooltip: 'إدارة المستخدمين',
+              tooltip: s.adminTitle,
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) =>
-                      AdminScreen(authService: widget.authService),
+                  builder: (_) => AdminScreen(authService: widget.authService),
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.translate),
+            onPressed: widget.onLocaleToggle,
+            tooltip: s.languageToggleTooltip,
+          ),
           IconButton(
             icon: Icon(
               widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
             ),
             onPressed: widget.onThemeToggle,
-            tooltip: widget.isDarkMode ? 'الوضع المضيء' : 'الوضع المظلم',
+            tooltip: widget.isDarkMode ? s.lightMode : s.darkMode,
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'تسجيل الخروج',
+            tooltip: s.signOut,
             onPressed: widget.authService.signOut,
           ),
         ],
@@ -191,13 +194,11 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
                   color: _gateStatus ? colors.success : colors.danger,
                   fontWeight: FontWeight.bold,
                 ),
-                child: Text(_gateStatus ? 'البوابة مفتوحة' : 'البوابة مغلقة'),
+                child: Text(_gateStatus ? s.gateOpen : s.gateClosed),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                _gateStatus
-                    ? 'اضغط للإغلاق'
-                    : 'اضغط للفتح',
+                _gateStatus ? s.tapToClose : s.tapToOpen,
                 style: theme.textTheme.labelMedium,
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -211,8 +212,15 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     );
   }
 
+  String _connLabel(AppStrings s) => switch (_conn) {
+        _Conn.connecting => s.connecting,
+        _Conn.connected => s.connected,
+        _Conn.disconnected => s.disconnected,
+      };
+
   Widget _connectionPill(AppColors colors) {
-    final connected = _connectionStatus == 'متصل';
+    final s = AppStrings.of(context);
+    final connected = _conn == _Conn.connected;
     final c = connected ? colors.success : colors.danger;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -233,7 +241,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
           ),
           const SizedBox(width: AppSpacing.sm),
           Text(
-            _connectionStatus,
+            _connLabel(s),
             style: TextStyle(
               color: c,
               fontWeight: FontWeight.w600,
@@ -304,7 +312,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               ],
       ),
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _toggleGate,
+        onPressed: (_isLoading || !_hasState) ? null : _toggleGate,
         style: ElevatedButton.styleFrom(
           backgroundColor: action,
           foregroundColor: Colors.white,
@@ -326,11 +334,16 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(_gateStatus ? Icons.lock_rounded
-                      : Icons.lock_open_rounded, size: 24),
+                  Icon(
+                      _gateStatus
+                          ? Icons.lock_rounded
+                          : Icons.lock_open_rounded,
+                      size: 24),
                   const SizedBox(width: AppSpacing.sm + 4),
                   Text(
-                    _gateStatus ? 'إغلاق البوابة' : 'فتح البوابة',
+                    _gateStatus
+                        ? AppStrings.of(context).closeGate
+                        : AppStrings.of(context).openGate,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -343,6 +356,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   }
 
   Widget _infoCard(ThemeData theme, ColorScheme colorScheme) {
+    final s = AppStrings.of(context);
     return SectionCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -353,17 +367,17 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
               const SizedBox(width: AppSpacing.sm),
               Text(
-                'معلومات النظام',
+                s.systemInfo,
                 style: theme.textTheme.titleMedium,
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          InfoRow(label: 'حالة الاتصال', value: _connectionStatus),
+          InfoRow(label: s.connectionStatusLabel, value: _connLabel(s)),
           InfoRow(
-              label: 'حالة البوابة',
-              value: _gateStatus ? 'مفتوحة' : 'مغلقة'),
-          const InfoRow(label: 'تحديث تلقائي', value: 'كل 3 ثواني'),
+              label: s.gateStatusLabel,
+              value: _gateStatus ? s.stateOpen : s.stateClosed),
+          InfoRow(label: s.syncLabel, value: s.syncLive),
         ],
       ),
     );

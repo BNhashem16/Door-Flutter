@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Home-screen gate control widget. The whole card is the tap target. -->
+<!-- Home-screen gate control widget. The whole card is the tap target.
+     Scales from the smallest (1x1) to the largest cell: the icon flexes to
+     fill the available height, and every label auto-sizes to fit its box. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -12,43 +14,62 @@
         android:orientation="vertical"
         android:gravity="center"
         android:background="@drawable/gate_widget_bg"
-        android:padding="12dp"
+        android:padding="8dp"
         android:clickable="true"
         android:focusable="true">
 
         <ImageView
             android:id="@+id/gate_icon"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:minHeight="20dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
             android:src="@drawable/ic_gate_closed"
             android:contentDescription="حالة البوابة" />
 
         <TextView
             android:id="@+id/gate_state"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:maxLines="1"
             android:text="البوابة مغلقة"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="10sp"
+            android:autoSizeMaxTextSize="18sp"
+            android:autoSizeStepGranularity="1sp" />
 
         <TextView
             android:id="@+id/gate_action"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
+            android:gravity="center"
+            android:maxLines="1"
             android:text="اضغط للفتح"
             android:textColor="#C8FFFFFF"
-            android:textSize="12sp" />
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="14sp"
+            android:autoSizeStepGranularity="1sp" />
 
         <TextView
             android:id="@+id/gate_status"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:maxLines="1"
             android:text="—"
             android:textColor="#99FFFFFF"
-            android:textSize="11sp" />
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="8sp"
+            android:autoSizeMaxTextSize="13sp"
+            android:autoSizeStepGranularity="1sp" />
     </LinearLayout>
 </FrameLayout>

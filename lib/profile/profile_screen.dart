@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/auth_service.dart';
+import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/section_card.dart';
@@ -15,11 +16,12 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final uid = authService.currentUser?.uid;
     return Scaffold(
-      appBar: AppBar(title: const Text('الملف الشخصي')),
+      appBar: AppBar(title: Text(s.profileTitle)),
       body: uid == null
-          ? const Center(child: Text('لا يوجد مستخدم'))
+          ? Center(child: Text(s.noUser))
           : StreamBuilder<AppUser?>(
               stream: authService.userProfile(uid),
               builder: (context, snap) {
@@ -28,7 +30,7 @@ class ProfileScreen extends StatelessWidget {
                 }
                 final user = snap.data;
                 if (user == null) {
-                  return const Center(child: Text('تعذّر تحميل الملف'));
+                  return Center(child: Text(s.loadProfileError));
                 }
                 return _Body(authService: authService, user: user);
               },
@@ -46,6 +48,7 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = AppStrings.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -56,7 +59,7 @@ class _Body extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            user.name.isEmpty ? '(بدون اسم)' : user.name,
+            user.name.isEmpty ? s.noName : user.name,
             textAlign: TextAlign.center,
             style: theme.textTheme.titleLarge,
           ),
@@ -81,13 +84,14 @@ class _Body extends StatelessWidget {
             child: Column(
               children: [
                 InfoRow(
-                  label: 'رقم الشقة',
-                  value: user.apartment.isEmpty ? 'لم يُضف بعد' : user.apartment,
+                  label: s.apartment,
+                  value:
+                      user.apartment.isEmpty ? s.notAddedYet : user.apartment,
                 ),
                 Divider(color: theme.dividerColor, height: AppSpacing.lg),
                 InfoRow(
-                  label: 'نبذة',
-                  value: user.bio.isEmpty ? 'لم تُضف بعد' : user.bio,
+                  label: s.bio,
+                  value: user.bio.isEmpty ? s.notAddedYet : user.bio,
                 ),
               ],
             ),
@@ -105,7 +109,7 @@ class _Body extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.edit_outlined),
-              label: const Text('تعديل الملف'),
+              label: Text(s.editProfile),
             ),
           ),
         ],

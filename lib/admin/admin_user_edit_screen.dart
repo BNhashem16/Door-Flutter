@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../auth/auth_service.dart';
 import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
+import '../toast/toast_service.dart';
 
-/// Edit editable profile fields: name, apartment, bio. Email is read-only.
-class ProfileEditScreen extends StatefulWidget {
-  const ProfileEditScreen({
+/// Admin edit: change any of a user's fields, including role and status.
+/// Email and createdAt stay immutable (set on register).
+class AdminUserEditScreen extends StatefulWidget {
+  const AdminUserEditScreen({
     super.key,
     required this.authService,
     required this.user,
@@ -16,10 +18,10 @@ class ProfileEditScreen extends StatefulWidget {
   final AppUser user;
 
   @override
-  State<ProfileEditScreen> createState() => _ProfileEditScreenState();
+  State<AdminUserEditScreen> createState() => _AdminUserEditScreenState();
 }
 
-class _ProfileEditScreenState extends State<ProfileEditScreen> {
+class _AdminUserEditScreenState extends State<AdminUserEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl =
       TextEditingController(text: widget.user.name);
@@ -27,6 +29,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       TextEditingController(text: widget.user.apartment);
   late final TextEditingController _bioCtrl =
       TextEditingController(text: widget.user.bio);
+  late UserRole _role = widget.user.role;
+  late UserStatus _status = widget.user.status == UserStatus.unknown
+      ? UserStatus.pending
+      : widget.user.status;
   bool _saving = false;
 
   @override
@@ -41,28 +47,20 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await widget.authService.updateProfile(
+      await widget.authService.adminUpdateUser(
         widget.user.uid,
         name: _nameCtrl.text,
         apartment: _apartmentCtrl.text,
         bio: _bioCtrl.text,
+        role: _role,
+        status: _status,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppStrings.of(context).saveChangesSuccess),
-          backgroundColor: const Color(0xFF059669),
-        ),
-      );
+      showToast(context, AppStrings.of(context).saveChangesSuccess);
       Navigator.of(context).pop();
-    } catch (_) {
+    } on Exception {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppStrings.of(context).saveChangesError),
-          backgroundColor: const Color(0xFFDC2626),
-        ),
-      );
+      showToast(context, AppStrings.of(context).saveChangesError);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -72,7 +70,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(s.editProfile)),
+      appBar: AppBar(title: Text(s.editUserTitle)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -88,7 +86,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     prefixIcon: const Icon(Icons.person_outline),
                   ),
                   validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? s.enterName : null,
+                      (v == null || v.trim().isEmpty) ? s.enterNameField : null,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
@@ -118,6 +116,48 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     alignLabelWithHint: true,
                     prefixIcon: const Icon(Icons.notes_outlined),
                   ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<UserRole>(
+                  initialValue: _role,
+                  decoration: InputDecoration(
+                    labelText: s.roleLabel,
+                    prefixIcon: const Icon(Icons.shield_outlined),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: UserRole.user,
+                      child: Text(s.roleUser),
+                    ),
+                    DropdownMenuItem(
+                      value: UserRole.admin,
+                      child: Text(s.roleAdmin),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _role = v ?? _role),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<UserStatus>(
+                  initialValue: _status,
+                  decoration: InputDecoration(
+                    labelText: s.statusLabel,
+                    prefixIcon: const Icon(Icons.verified_user_outlined),
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: UserStatus.pending,
+                      child: Text(s.statusPending),
+                    ),
+                    DropdownMenuItem(
+                      value: UserStatus.approved,
+                      child: Text(s.statusApproved),
+                    ),
+                    DropdownMenuItem(
+                      value: UserStatus.rejected,
+                      child: Text(s.statusRejected),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _status = v ?? _status),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 SizedBox(

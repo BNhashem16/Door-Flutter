@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../firebase/firebase_update_screen.dart';
+import '../gate/gate_widget_callback.dart';
+import '../l10n/app_strings.dart';
 import 'auth_service.dart';
 import 'login_screen.dart';
 import 'pending_screen.dart';
@@ -12,10 +14,12 @@ class AuthGate extends StatefulWidget {
     super.key,
     required this.onThemeToggle,
     required this.isDarkMode,
+    required this.onLocaleToggle,
   });
 
   final VoidCallback onThemeToggle;
   final bool isDarkMode;
+  final VoidCallback onLocaleToggle;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -25,11 +29,25 @@ class _AuthGateState extends State<AuthGate> {
   final _authService = AuthService();
   String? _deviceId;
 
+  /// Last value pushed to the home-screen widget lock flag — avoids redundant
+  /// SharedPreferences writes on every rebuild.
+  bool? _widgetEnabled;
+
   @override
   void initState() {
     super.initState();
     _authService.currentDeviceId().then((id) {
       if (mounted) setState(() => _deviceId = id);
+    });
+  }
+
+  /// Keep the widget lock in sync with the resolved auth state. Only an
+  /// approved, signed-in user may control the gate from the home screen.
+  void _syncWidget(bool enabled) {
+    if (_widgetEnabled == enabled) return;
+    _widgetEnabled = enabled;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setWidgetLoggedIn(enabled);
     });
   }
 
@@ -43,6 +61,7 @@ class _AuthGateState extends State<AuthGate> {
         }
         final user = authSnap.data;
         if (user == null) {
+          _syncWidget(false);
           return LoginScreen(authService: _authService);
         }
         return StreamBuilder<AppUser?>(
@@ -54,22 +73,26 @@ class _AuthGateState extends State<AuthGate> {
             final profile = profileSnap.data;
             if (profile == null) {
               // Authenticated but no profile record yet → treat as pending.
-              return PendingScreen(
-                  authService: _authService, rejected: false);
+              _syncWidget(false);
+              return PendingScreen(authService: _authService, rejected: false);
             }
             // Single-device: another device claimed this account → sign out.
             if (_deviceId != null &&
                 profile.activeDevice.isNotEmpty &&
                 profile.activeDevice != _deviceId) {
+              _syncWidget(false);
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _authService.signOut();
               });
               return const _LoggedOutElsewhere();
             }
+            // Only an approved user may control the gate from the widget.
+            _syncWidget(profile.status == UserStatus.approved);
             return switch (profile.status) {
               UserStatus.approved => FirebaseUpdateScreen(
                   onThemeToggle: widget.onThemeToggle,
                   isDarkMode: widget.isDarkMode,
+                  onLocaleToggle: widget.onLocaleToggle,
                   authService: _authService,
                   isAdmin: profile.isAdmin,
                   userName: profile.name,
@@ -103,6 +126,7 @@ class _LoggedOutElsewhere extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = AppStrings.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -114,13 +138,13 @@ class _LoggedOutElsewhere extends StatelessWidget {
                 const Icon(Icons.devices_other, size: 80),
                 const SizedBox(height: 24),
                 Text(
-                  'تم تسجيل الدخول على جهاز آخر',
+                  s.loggedOutElsewhereTitle,
                   style: theme.textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'هذا الحساب يُستخدم الآن على جهاز آخر.',
+                Text(
+                  s.loggedOutElsewhereBody,
                   textAlign: TextAlign.center,
                 ),
               ],

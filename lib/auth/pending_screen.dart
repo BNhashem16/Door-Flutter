@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import 'auth_service.dart';
 
 /// Shown to authenticated users whose account is not yet approved
@@ -17,12 +18,11 @@ class PendingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = AppStrings.of(context);
     final icon = rejected ? Icons.block : Icons.hourglass_top;
     final color = rejected ? Colors.red : Colors.orange;
-    final title = rejected ? 'تم رفض الحساب' : 'بانتظار الموافقة';
-    final body = rejected
-        ? 'تم رفض حسابك. تواصل مع المسؤول لمزيد من المعلومات.'
-        : 'تم إنشاء حسابك بنجاح. سيتمكن المسؤول من الموافقة عليه قريبًا.';
+    final title = rejected ? s.rejectedTitle : s.pendingTitle;
+    final body = rejected ? s.rejectedBody : s.pendingBody;
 
     return Scaffold(
       body: SafeArea(
@@ -43,7 +43,7 @@ class PendingScreen extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: authService.signOut,
                   icon: const Icon(Icons.logout),
-                  label: const Text('تسجيل الخروج'),
+                  label: Text(s.signOut),
                 ),
               ],
             ),
