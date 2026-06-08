@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+import 'device_session.dart';
+
 /// User account status controlled by an admin.
 enum UserStatus { pending, approved, rejected, unknown }
 
@@ -19,6 +21,7 @@ class AppUser {
     required this.createdAt,
     this.apartment = '',
     this.bio = '',
+    this.activeDevice = '',
   });
 
   final String uid;
@@ -29,6 +32,9 @@ class AppUser {
   final int createdAt;
   final String apartment;
   final String bio;
+
+  /// Id of the device currently allowed to use this account (single-device).
+  final String activeDevice;
 
   bool get isAdmin => role == UserRole.admin;
   bool get isApproved => status == UserStatus.approved;
@@ -43,6 +49,7 @@ class AppUser {
       createdAt: (map['createdAt'] ?? 0) as int,
       apartment: (map['apartment'] ?? '') as String,
       bio: (map['bio'] ?? '') as String,
+      activeDevice: (map['activeDevice'] ?? '') as String,
     );
   }
 
@@ -143,11 +150,21 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    await _auth.signInWithEmailAndPassword(
+    final cred = await _auth.signInWithEmailAndPassword(
       email: email.trim(),
       password: password,
     );
+    // Single-device: claim this account for the current device. Any other
+    // device still signed in will observe the change and sign itself out.
+    final uid = cred.user?.uid;
+    if (uid != null) {
+      final deviceId = await DeviceSession.id();
+      await _userRef(uid).update({'activeDevice': deviceId});
+    }
   }
+
+  /// The id of the device currently bound to this install.
+  Future<String> currentDeviceId() => DeviceSession.id();
 
   Future<void> signOut() => _auth.signOut();
 

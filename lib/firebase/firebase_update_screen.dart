@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'dart:async';
 
 import '../admin/admin_screen.dart';
 import '../auth/auth_service.dart';
+import '../gate/gate_service.dart';
 import '../profile/profile_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/initials_avatar.dart';
@@ -36,7 +35,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   String _connectionStatus = 'متصل';
   Timer? _statusCheckTimer;
 
-  final String _firebaseUrl = 'https://microiot.firebaseio.com/users/1BEy97EhEObAeP7U6s4CFM66IPr2/devices/D.json?auth=VSV5R6QkmXOT12rrR6fuawILTpJdM8GjUQhiyShM';
+  final GateService _gate = GateService();
 
   @override
   void initState() {
@@ -48,6 +47,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   @override
   void dispose() {
     _statusCheckTimer?.cancel();
+    _gate.dispose();
     super.dispose();
   }
 
@@ -64,23 +64,14 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
 
   Future<void> _fetchCurrentStatus() async {
     try {
-      final response = await http.get(Uri.parse(_firebaseUrl));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data != null && data['state'] != null) {
-          setState(() {
-            // تحويل ON إلى true (مفتوح) و OFF إلى false (مغلق)
-            _gateStatus = data['state'] == 'ON';
-            _connectionStatus = 'متصل';
-          });
-        }
-      } else {
-        setState(() {
-          _connectionStatus = 'غير متصل';
-        });
-      }
+      final open = await _gate.fetchState();
+      if (!mounted) return;
+      setState(() {
+        _gateStatus = open;
+        _connectionStatus = 'متصل';
+      });
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         _connectionStatus = 'غير متصل';
       });
@@ -93,36 +84,17 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     });
 
     try {
-      // إرسال العكس: إذا كانت البوابة مفتوحة نرسل OFF وإذا كانت مغلقة نرسل ON
-      String newState = _gateStatus ? "OFF" : "ON";
-
-      final response = await http.put(
-        Uri.parse(_firebaseUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'apikey': "D",
-          'changedby': "ahmed hashem",
-          'state': newState,
-          'name': "Door",
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'type': "Motor",
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        _showSuccessSnackBar(newState == 'ON' ? 'تم فتح البوابة' : 'تم إغلاق البوابة');
-        // تحديث الحالة المحلية فوراً
-        setState(() {
-          _gateStatus = newState == 'ON';
-        });
-      } else {
-        _showErrorSnackBar('فشل في تغيير حالة البوابة');
-      }
+      final newOpen = await _gate.toggle(currentOpen: _gateStatus);
+      if (!mounted) return;
+      _showSuccessSnackBar(newOpen ? 'تم فتح البوابة' : 'تم إغلاق البوابة');
+      setState(() {
+        _gateStatus = newOpen;
+      });
     } catch (error) {
+      if (!mounted) return;
       _showErrorSnackBar('خطأ في الاتصال: $error');
     } finally {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });

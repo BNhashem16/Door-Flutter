@@ -23,6 +23,15 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   final _authService = AuthService();
+  String? _deviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService.currentDeviceId().then((id) {
+      if (mounted) setState(() => _deviceId = id);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +56,15 @@ class _AuthGateState extends State<AuthGate> {
               // Authenticated but no profile record yet → treat as pending.
               return PendingScreen(
                   authService: _authService, rejected: false);
+            }
+            // Single-device: another device claimed this account → sign out.
+            if (_deviceId != null &&
+                profile.activeDevice.isNotEmpty &&
+                profile.activeDevice != _deviceId) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _authService.signOut();
+              });
+              return const _LoggedOutElsewhere();
             }
             return switch (profile.status) {
               UserStatus.approved => FirebaseUpdateScreen(
@@ -74,6 +92,42 @@ class _Splash extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+/// Shown briefly when the account was claimed by another device.
+class _LoggedOutElsewhere extends StatelessWidget {
+  const _LoggedOutElsewhere();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.devices_other, size: 80),
+                const SizedBox(height: 24),
+                Text(
+                  'تم تسجيل الدخول على جهاز آخر',
+                  style: theme.textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'هذا الحساب يُستخدم الآن على جهاز آخر.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

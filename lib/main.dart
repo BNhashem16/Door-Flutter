@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:home_widget/home_widget.dart';
 import './auth/auth_gate.dart';
+import './gate/gate_widget_callback.dart';
 import './theme/app_theme.dart';
 import 'firebase_options.dart';
 
@@ -9,6 +11,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Route home-screen widget taps to the headless gate toggle callback.
+  HomeWidget.registerInteractivityCallback(gateWidgetTapped);
   runApp(MyApp());
 }
 
