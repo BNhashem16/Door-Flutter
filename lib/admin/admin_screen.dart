@@ -7,6 +7,7 @@ import '../toast/toast_service.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
+import '../logs/logs_screen.dart';
 import 'admin_user_edit_screen.dart';
 
 /// Admin view: list all users and approve/reject pending ones.
@@ -19,7 +20,23 @@ class AdminScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(s.adminTitle)),
+      appBar: AppBar(
+        title: Text(s.adminTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: s.allLogsTooltip,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => LogsScreen(
+                  authService: authService,
+                  scope: LogScope.all,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: StreamBuilder<List<AppUser>>(
         stream: authService.watchAllUsers(),
         builder: (context, snapshot) {

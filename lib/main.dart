@@ -3,10 +3,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:home_widget/home_widget.dart';
+import './auth/app_lock.dart';
 import './auth/auth_gate.dart';
 import './auth/auth_service.dart';
 import './gate/gate_widget_callback.dart';
 import './l10n/app_strings.dart';
+import './l10n/locale_scope.dart';
 import './l10n/locale_store.dart';
 import './theme/app_theme.dart';
 import 'firebase_options.dart';
@@ -41,6 +43,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   bool _isDarkMode = false;
   late Locale _locale = widget.initialLocale;
+  final _authService = AuthService();
 
   void _toggleTheme() {
     setState(() {
@@ -71,10 +74,22 @@ class _MyAppState extends State<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: AuthGate(
-        onThemeToggle: _toggleTheme,
-        isDarkMode: _isDarkMode,
-        onLocaleToggle: _toggleLocale,
+      // Wrap the Navigator (not just `home`) so LocaleScope is reachable from
+      // every route — including pushed routes like RegisterScreen. Wrapping
+      // `home` alone left pushed routes above the scope and crashed
+      // LanguageToggleButton with a null LocaleScope.
+      builder: (context, child) => LocaleScope(
+        locale: _locale,
+        onToggle: _toggleLocale,
+        child: child!,
+      ),
+      home: AppLock(
+        authService: _authService,
+        child: AuthGate(
+          onThemeToggle: _toggleTheme,
+          isDarkMode: _isDarkMode,
+          onLocaleToggle: _toggleLocale,
+        ),
       ),
     );
   }

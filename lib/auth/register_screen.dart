@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
+import '../widgets/language_toggle_button.dart';
 import 'auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -37,6 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailCtrl.text,
         password: _passwordCtrl.text,
         name: _nameCtrl.text,
+        locale: Localizations.localeOf(context).languageCode,
       );
       if (!mounted) return;
       // New accounts are pending; AuthGate shows the pending screen.
@@ -64,7 +66,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final theme = Theme.of(context);
     final s = AppStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(s.registerTitle)),
+      appBar: AppBar(
+        title: Text(s.registerTitle),
+        actions: const [LanguageToggleButton()],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

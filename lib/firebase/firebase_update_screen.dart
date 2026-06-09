@@ -5,6 +5,7 @@ import '../admin/admin_screen.dart';
 import '../auth/auth_service.dart';
 import '../gate/gate_service.dart';
 import '../l10n/app_strings.dart';
+import '../logs/gate_log.dart';
 import '../profile/profile_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/initials_avatar.dart';
@@ -85,6 +86,15 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     try {
       // Write only — the live stream reflects the new state back to the UI.
       final newOpen = await _gate.setOpen(!_gateStatus);
+      final uid = widget.authService.currentUser?.uid;
+      if (uid != null) {
+        unawaited(widget.authService.logGateAction(
+          uid: uid,
+          name: widget.userName,
+          action: newOpen ? GateAction.open : GateAction.close,
+          source: GateSource.app,
+        ));
+      }
       if (!mounted) return;
       final s = AppStrings.of(context);
       _showSuccessSnackBar(newOpen ? s.gateOpened : s.gateClosedMsg);

@@ -46,6 +46,24 @@ abstract class AppStrings {
   String get emailInvalid;
   String get passwordTooShort;
 
+  // Verify email (4-digit OTP)
+  String get verifyEmailTitle;
+  String verifyEmailBody(String email);
+  String get verifyEmailWaiting;
+  String get verifyEmailResend;
+  String verifyEmailResendIn(int seconds);
+  String get verifyEmailResent;
+  String get verifyEmailCheckButton;
+  String get verifyEmailNotYet;
+  String get verifyEmailVerified;
+  String get enterCodeHint;
+  String get otpSentToast;
+  String otpWrong(int attemptsLeft);
+  String get otpExpired;
+  String get otpTooManyAttempts;
+  String otpCooldown(int seconds);
+  String get verifyCodeButton;
+
   // Pending / rejected
   String get pendingTitle;
   String get pendingBody;
@@ -103,6 +121,17 @@ abstract class AppStrings {
   // Home-screen widget
   String get widgetLoginRequired;
 
+  // Gate access logs
+  String get logsTitle;
+  String get logsLoadError;
+  String get noLogs;
+  String get logActionOpen;
+  String get logActionClose;
+  String get logSourceApp;
+  String get logSourceWidget;
+  String get myLogsButton;
+  String get allLogsTooltip;
+
   // Profile
   String get profileTitle;
   String get noUser;
@@ -111,6 +140,20 @@ abstract class AppStrings {
   String get bio;
   String get notAddedYet;
   String get editProfile;
+
+  // Biometric lock
+  String get biometricLockLabel;
+  String get biometricLockSubtitle;
+  String get biometricUnavailable;
+  String get biometricEnableScanReason;
+  String get biometricUnlockReason;
+  String get signInWithFingerprint;
+  String get lockTitle;
+  String get unlockWithFingerprint;
+  String get usePasswordInstead;
+  String get wrongPassword;
+  String get enableBiometricPasswordPrompt;
+  String get confirm;
 
   // Profile edit
   String get saveChangesSuccess;
@@ -169,6 +212,41 @@ class _Ar implements AppStrings {
   String get emailInvalid => 'أدخل بريدًا إلكترونيًا صحيحًا';
   @override
   String get passwordTooShort => 'كلمة المرور 6 أحرف على الأقل';
+
+  @override
+  String get verifyEmailTitle => 'تأكيد البريد الإلكتروني';
+  @override
+  String verifyEmailBody(String email) =>
+      'أرسلنا رمزًا مكوّنًا من 4 أرقام إلى\n$email\nأدخل الرمز أدناه لتفعيل حسابك.';
+  @override
+  String get verifyEmailWaiting => 'بانتظار التأكيد…';
+  @override
+  String get verifyEmailResend => 'إعادة إرسال الرمز';
+  @override
+  String verifyEmailResendIn(int seconds) => 'إعادة الإرسال خلال $seconds ث';
+  @override
+  String get verifyEmailResent => 'تم إرسال الرمز';
+  @override
+  String get verifyEmailCheckButton => 'تأكيد';
+  @override
+  String get verifyEmailNotYet => 'لم يتم تأكيد البريد بعد';
+  @override
+  String get verifyEmailVerified => 'تم تأكيد بريدك بنجاح';
+  @override
+  String get enterCodeHint => 'أدخل الرمز المكوّن من 4 أرقام';
+  @override
+  String get otpSentToast => 'تم إرسال الرمز إلى بريدك';
+  @override
+  String otpWrong(int attemptsLeft) =>
+      'رمز غير صحيح. المحاولات المتبقية: $attemptsLeft';
+  @override
+  String get otpExpired => 'انتهت صلاحية الرمز. أعد طلب رمز جديد';
+  @override
+  String get otpTooManyAttempts => 'محاولات كثيرة جدًا. أعد طلب رمز جديد';
+  @override
+  String otpCooldown(int seconds) => 'انتظر $seconds ث قبل إعادة الإرسال';
+  @override
+  String get verifyCodeButton => 'تأكيد الرمز';
 
   @override
   String get pendingTitle => 'بانتظار الموافقة';
@@ -273,6 +351,25 @@ class _Ar implements AppStrings {
   String get widgetLoginRequired => 'سجّل الدخول أولاً';
 
   @override
+  String get logsTitle => 'سجل الوصول';
+  @override
+  String get logsLoadError => 'تعذّر تحميل السجل';
+  @override
+  String get noLogs => 'لا يوجد سجل بعد';
+  @override
+  String get logActionOpen => 'فتح';
+  @override
+  String get logActionClose => 'إغلاق';
+  @override
+  String get logSourceApp => 'من التطبيق';
+  @override
+  String get logSourceWidget => 'من الأداة';
+  @override
+  String get myLogsButton => 'سجل وصولي';
+  @override
+  String get allLogsTooltip => 'سجل وصول الجميع';
+
+  @override
   String get profileTitle => 'الملف الشخصي';
   @override
   String get noUser => 'لا يوجد مستخدم';
@@ -286,6 +383,31 @@ class _Ar implements AppStrings {
   String get notAddedYet => 'لم يُضف بعد';
   @override
   String get editProfile => 'تعديل الملف';
+
+  @override
+  String get biometricLockLabel => 'قفل البصمة';
+  @override
+  String get biometricLockSubtitle => 'افتح التطبيق ببصمتك';
+  @override
+  String get biometricUnavailable => 'لا توجد بصمة مسجّلة على هذا الجهاز';
+  @override
+  String get biometricEnableScanReason => 'أكّد بصمتك لتفعيل القفل';
+  @override
+  String get biometricUnlockReason => 'افتح التطبيق ببصمتك';
+  @override
+  String get signInWithFingerprint => 'الدخول بالبصمة';
+  @override
+  String get lockTitle => 'التطبيق مقفول';
+  @override
+  String get unlockWithFingerprint => 'افتح بالبصمة';
+  @override
+  String get usePasswordInstead => 'استخدم كلمة المرور';
+  @override
+  String get wrongPassword => 'كلمة المرور غير صحيحة';
+  @override
+  String get enableBiometricPasswordPrompt => 'أدخل كلمة المرور لتفعيل القفل';
+  @override
+  String get confirm => 'تأكيد';
 
   @override
   String get saveChangesSuccess => 'تم حفظ التغييرات';
@@ -368,6 +490,41 @@ class _En implements AppStrings {
   String get emailInvalid => 'Enter a valid email';
   @override
   String get passwordTooShort => 'Password must be at least 6 characters';
+
+  @override
+  String get verifyEmailTitle => 'Verify your email';
+  @override
+  String verifyEmailBody(String email) =>
+      'We sent a 4-digit code to\n$email\nEnter the code below to activate your account.';
+  @override
+  String get verifyEmailWaiting => 'Waiting for confirmation…';
+  @override
+  String get verifyEmailResend => 'Resend code';
+  @override
+  String verifyEmailResendIn(int seconds) => 'Resend in ${seconds}s';
+  @override
+  String get verifyEmailResent => 'Code sent';
+  @override
+  String get verifyEmailCheckButton => 'Verify';
+  @override
+  String get verifyEmailNotYet => 'Email not verified yet';
+  @override
+  String get verifyEmailVerified => 'Your email has been verified';
+  @override
+  String get enterCodeHint => 'Enter the 4-digit code';
+  @override
+  String get otpSentToast => 'Code sent to your email';
+  @override
+  String otpWrong(int attemptsLeft) =>
+      'Wrong code. Attempts left: $attemptsLeft';
+  @override
+  String get otpExpired => 'The code expired. Request a new one';
+  @override
+  String get otpTooManyAttempts => 'Too many attempts. Request a new code';
+  @override
+  String otpCooldown(int seconds) => 'Wait ${seconds}s before resending';
+  @override
+  String get verifyCodeButton => 'Verify code';
 
   @override
   String get pendingTitle => 'Awaiting approval';
@@ -472,6 +629,25 @@ class _En implements AppStrings {
   String get widgetLoginRequired => 'Sign in first';
 
   @override
+  String get logsTitle => 'Access log';
+  @override
+  String get logsLoadError => 'Failed to load the log';
+  @override
+  String get noLogs => 'No log entries yet';
+  @override
+  String get logActionOpen => 'Open';
+  @override
+  String get logActionClose => 'Close';
+  @override
+  String get logSourceApp => 'From app';
+  @override
+  String get logSourceWidget => 'From widget';
+  @override
+  String get myLogsButton => 'My access log';
+  @override
+  String get allLogsTooltip => 'All access logs';
+
+  @override
   String get profileTitle => 'Profile';
   @override
   String get noUser => 'No user';
@@ -485,6 +661,33 @@ class _En implements AppStrings {
   String get notAddedYet => 'Not added yet';
   @override
   String get editProfile => 'Edit profile';
+
+  @override
+  String get biometricLockLabel => 'Fingerprint lock';
+  @override
+  String get biometricLockSubtitle => 'Unlock the app with your fingerprint';
+  @override
+  String get biometricUnavailable => 'No fingerprint enrolled on this device';
+  @override
+  String get biometricEnableScanReason =>
+      'Confirm your fingerprint to enable the lock';
+  @override
+  String get biometricUnlockReason => 'Unlock the app with your fingerprint';
+  @override
+  String get signInWithFingerprint => 'Sign in with fingerprint';
+  @override
+  String get lockTitle => 'App locked';
+  @override
+  String get unlockWithFingerprint => 'Unlock with fingerprint';
+  @override
+  String get usePasswordInstead => 'Use password instead';
+  @override
+  String get wrongPassword => 'Incorrect password';
+  @override
+  String get enableBiometricPasswordPrompt =>
+      'Enter your password to enable the lock';
+  @override
+  String get confirm => 'Confirm';
 
   @override
   String get saveChangesSuccess => 'Changes saved';
