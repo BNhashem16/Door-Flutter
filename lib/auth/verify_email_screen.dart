@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,20 +9,24 @@ import '../toast/toast_service.dart';
 import '../widgets/language_toggle_button.dart';
 import 'auth_service.dart';
 
-/// Shown to a signed-in but unverified user. Collects the 4-digit OTP emailed
-/// by the `sendEmailOtp` Cloud Function and verifies it via `verifyEmailOtp`.
-/// On success the Function flips `/app_users/{uid}/emailVerified`, and the
-/// profile stream in [AuthGate] re-routes the user forward — no polling, no
-/// `onVerified` callback needed here.
+/// Second step of registration (verify-before-create). The OTP was already
+/// emailed by [RegisterScreen] via `sendRegistrationOtp`; here the user enters
+/// the 4-digit code. On success the account is created with
+/// `completeRegistration`, which auto-signs-in and lets [AuthGate] route the
+/// new pending user forward. No account row exists until the code is correct.
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({
     super.key,
     required this.authService,
     required this.email,
+    required this.password,
+    required this.name,
   });
 
   final AuthService authService;
   final String email;
+  final String password;
+  final String name;
 
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -44,7 +49,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   @override
   void initState() {
     super.initState();
-    // register() already sent the first code, so start on cooldown.
+    // RegisterScreen already sent the first code, so start on cooldown.
     _startResendCooldown();
   }
 
@@ -101,13 +106,15 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _verifying = true);
     try {
-      final result = await widget.authService.verifyEmailOtp(_code);
+      final result = await widget.authService.verifyRegistrationOtp(
+        email: widget.email,
+        code: _code,
+      );
       if (!mounted) return;
       final s = AppStrings.of(context);
       switch (result) {
         case OtpOk():
-          showToast(context, s.verifyEmailVerified);
-        // AuthGate's profile stream re-routes once emailVerified flips.
+          await _createAccount();
         case OtpWrong(:final attemptsLeft):
           showToast(context, s.otpWrong(attemptsLeft));
           _clearCode();
@@ -127,10 +134,36 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
   }
 
+  /// Code confirmed → create the account now. createUser auto-signs-in, so
+  /// AuthGate replaces this screen with the pending screen; pop back to the
+  /// gate root to discard the register + verify route stack.
+  Future<void> _createAccount() async {
+    final s = AppStrings.of(context);
+    try {
+      await widget.authService.completeRegistration(
+        email: widget.email,
+        password: widget.password,
+        name: widget.name,
+      );
+      if (!mounted) return;
+      showToast(context, s.accountCreated);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      showToast(context, s.registerError(e.code));
+    } catch (_) {
+      if (!mounted) return;
+      showToast(context, s.unexpectedError);
+    }
+  }
+
   Future<void> _resend() async {
     if (_cooldown > 0) return;
     final locale = Localizations.localeOf(context).languageCode;
-    final result = await widget.authService.sendEmailOtp(locale);
+    final result = await widget.authService.sendRegistrationOtp(
+      email: widget.email,
+      locale: locale,
+    );
     if (!mounted) return;
     final s = AppStrings.of(context);
     switch (result) {
@@ -141,7 +174,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         showToast(context, s.otpCooldown(seconds));
         _startResendCooldown(seconds);
       case OtpWrong() || OtpExpired() || OtpTooMany() || OtpError():
-        showToast(context, s.unexpectedError);
+        showToast(context, s.otpSendFailed);
     }
   }
 
@@ -227,9 +260,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                     ),
                     const SizedBox(height: 24),
                     TextButton.icon(
-                      onPressed: widget.authService.signOut,
-                      icon: const Icon(Icons.logout),
-                      label: Text(s.signOut),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back),
+                      label: Text(s.cancel),
                     ),
                   ],
                 ),

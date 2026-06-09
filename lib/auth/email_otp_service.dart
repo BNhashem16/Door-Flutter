@@ -117,6 +117,7 @@ class EmailOtpService {
               ],
               'subject': subject,
               'htmlContent': _buildHtml(code: code, isAr: isAr),
+              'textContent': _buildText(code: code, isAr: isAr),
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -140,6 +141,15 @@ class EmailOtpService {
         'margin:16px 0">$code</p>'
         '<p style="font-size:13px;color:#666">$note</p>'
         '</div>';
+  }
+
+  String _buildText({required String code, required bool isAr}) {
+    if (isAr) {
+      return 'رمز التحقق الخاص بك هو: $code\n'
+          'صالح لمدة 10 دقائق. إذا لم تطلب هذا الرمز، تجاهل هذه الرسالة.';
+    }
+    return 'Your verification code is: $code\n'
+        'Valid for 10 minutes. If you did not request this code, ignore this email.';
   }
 
   Future<Map<String, dynamic>?> _read(String uid) async {

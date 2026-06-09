@@ -1,9 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
+import '../toast/toast_service.dart';
 import '../widgets/language_toggle_button.dart';
 import 'auth_service.dart';
+import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key, required this.authService});
@@ -33,22 +34,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
+    final s = AppStrings.of(context);
+    final locale = Localizations.localeOf(context).languageCode;
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
+    final name = _nameCtrl.text.trim();
     try {
-      await widget.authService.register(
-        email: _emailCtrl.text,
-        password: _passwordCtrl.text,
-        name: _nameCtrl.text,
-        locale: Localizations.localeOf(context).languageCode,
+      // Verify-before-create: email the OTP now; the account row is only
+      // written once the code is confirmed on the verify screen.
+      final result = await widget.authService.sendRegistrationOtp(
+        email: email,
+        locale: locale,
       );
       if (!mounted) return;
-      // New accounts are pending; AuthGate shows the pending screen.
-      Navigator.of(context).pop();
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      _showError(AppStrings.of(context).registerError(e.code));
+      switch (result) {
+        case OtpOk():
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => VerifyEmailScreen(
+                authService: widget.authService,
+                email: email,
+                password: password,
+                name: name,
+              ),
+            ),
+          );
+        case OtpCooldown(:final seconds):
+          showToast(context, s.otpCooldown(seconds));
+        case OtpWrong() || OtpExpired() || OtpTooMany() || OtpError():
+          _showError(s.otpSendFailed);
+      }
     } catch (_) {
       if (!mounted) return;
-      _showError(AppStrings.of(context).unexpectedError);
+      _showError(s.unexpectedError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

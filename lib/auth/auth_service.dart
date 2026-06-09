@@ -158,13 +158,40 @@ class AuthService {
     });
   }
 
-  /// Register with email/password and create a pending profile record.
-  /// [locale] (`ar`|`en`) selects the language of the OTP email.
-  Future<void> register({
+  /// Local storage namespace for a pre-account registration OTP, keyed by the
+  /// normalized email (no uid exists yet at this stage).
+  String _regKey(String email) => 'reg:${email.trim().toLowerCase()}';
+
+  /// Send a 4-digit OTP to [email] BEFORE any account is created, so an
+  /// unverified email never lands a row in the database. [locale] (`ar`|`en`)
+  /// selects the email language. Returns [OtpOk], [OtpCooldown] during the
+  /// resend cooldown, or [OtpError] (email failed / Brevo not configured).
+  Future<OtpResult> sendRegistrationOtp({
+    required String email,
+    required String locale,
+  }) {
+    return _otp.send(uid: _regKey(email), email: email.trim(), locale: locale);
+  }
+
+  /// Check the registration [code] for [email]. Does NOT create the account —
+  /// call [completeRegistration] after this returns [OtpOk].
+  Future<OtpResult> verifyRegistrationOtp({
+    required String email,
+    required String code,
+  }) {
+    return _otp.verify(uid: _regKey(email), code: code);
+  }
+
+  /// Create the Firebase Auth user and the pending profile record AFTER the
+  /// email OTP has been verified. createUser auto-signs-in, so [AuthGate]
+  /// routes the new (pending) user to the pending screen. The profile is
+  /// written with `emailVerified: false` because the security rules require it
+  /// on owner-create; email ownership is already proven by the OTP step.
+  /// Throws [FirebaseAuthException] (e.g. `email-already-in-use`).
+  Future<void> completeRegistration({
     required String email,
     required String password,
     required String name,
-    String locale = 'ar',
   }) async {
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
@@ -180,33 +207,7 @@ class AuthService {
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     await _userRef(uid).set(profile.toMap());
-    // Send the first 4-digit OTP. AuthGate keeps the account on the verify
-    // screen until the profile's emailVerified flag flips (set server-side by
-    // the verify Cloud Function). A send failure is non-fatal here — the user
-    // can resend from the verify screen.
-    await sendEmailOtp(locale);
-  }
-
-  /// Send a fresh 4-digit OTP to the signed-in user's email in [locale]
-  /// (`ar`|`en`). Returns [OtpOk], [OtpCooldown] while the resend cooldown is
-  /// active, or [OtpError] (email failed / not configured / signed out).
-  Future<OtpResult> sendEmailOtp(String locale) async {
-    final user = _auth.currentUser;
-    final email = user?.email;
-    if (user == null || email == null) return const OtpError();
-    return _otp.send(uid: user.uid, email: email, locale: locale);
-  }
-
-  /// Verify the entered [code]. On [OtpOk], flips `emailVerified` in RTDB so
-  /// the profile stream re-routes the gate forward.
-  Future<OtpResult> verifyEmailOtp(String code) async {
-    final user = _auth.currentUser;
-    if (user == null) return const OtpError();
-    final result = await _otp.verify(uid: user.uid, code: code);
-    if (result is OtpOk) {
-      await _userRef(user.uid).update({'emailVerified': true});
-    }
-    return result;
+    await _otp.clear(_regKey(email));
   }
 
   Future<void> signIn({

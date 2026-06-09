@@ -22,7 +22,8 @@ void main() async {
   try {
     await dotenv.load(fileName: '.env');
   } on Exception {
-    // .env absent or unreadable; leave dotenv empty.
+    // .env absent or unreadable; BrevoConfig.isConfigured stays false and OTP
+    // send returns OtpError instead of crashing.
   }
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

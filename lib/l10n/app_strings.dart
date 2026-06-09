@@ -58,6 +58,8 @@ abstract class AppStrings {
   String get verifyEmailVerified;
   String get enterCodeHint;
   String get otpSentToast;
+  String get otpSendFailed;
+  String get accountCreated;
   String otpWrong(int attemptsLeft);
   String get otpExpired;
   String get otpTooManyAttempts;
@@ -236,6 +238,10 @@ class _Ar implements AppStrings {
   String get enterCodeHint => 'أدخل الرمز المكوّن من 4 أرقام';
   @override
   String get otpSentToast => 'تم إرسال الرمز إلى بريدك';
+  @override
+  String get otpSendFailed => 'تعذّر إرسال الرمز. تحقّق من بريدك وحاول مجددًا';
+  @override
+  String get accountCreated => 'تم إنشاء حسابك بنجاح';
   @override
   String otpWrong(int attemptsLeft) =>
       'رمز غير صحيح. المحاولات المتبقية: $attemptsLeft';
@@ -514,6 +520,11 @@ class _En implements AppStrings {
   String get enterCodeHint => 'Enter the 4-digit code';
   @override
   String get otpSentToast => 'Code sent to your email';
+  @override
+  String get otpSendFailed =>
+      'Could not send the code. Check your email and try again';
+  @override
+  String get accountCreated => 'Your account has been created';
   @override
   String otpWrong(int attemptsLeft) =>
       'Wrong code. Attempts left: $attemptsLeft';

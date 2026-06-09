@@ -8,7 +8,6 @@ import '../widgets/language_toggle_button.dart';
 import 'auth_service.dart';
 import 'login_screen.dart';
 import 'pending_screen.dart';
-import 'verify_email_screen.dart';
 
 /// Routes the user to the right screen based on auth + approval state.
 class AuthGate extends StatefulWidget {
@@ -74,19 +73,10 @@ class _AuthGateState extends State<AuthGate> {
               return const _Splash();
             }
             final profile = profileSnap.data;
-            // Email verification gate: any not-yet-approved account must
-            // confirm its email before proceeding. Approved users (and admins)
-            // are grandfathered so accounts created before this feature aren't
-            // locked out.
-            final emailVerified = profile?.emailVerified ?? false;
-            final isApproved = profile?.status == UserStatus.approved;
-            if (!isApproved && !emailVerified) {
-              _syncWidget(false);
-              return VerifyEmailScreen(
-                authService: _authService,
-                email: user.email ?? '',
-              );
-            }
+            // Email verification now happens BEFORE the account is created
+            // (see RegisterScreen → VerifyEmailScreen → completeRegistration),
+            // so any profile that exists here already proved email ownership.
+            // Routing is purely by approval status.
             if (profile == null) {
               // Authenticated but no profile record yet → treat as pending.
               _syncWidget(false);
