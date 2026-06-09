@@ -3,14 +3,15 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
-import 'emailjs_config.dart';
+import 'brevo_config.dart';
 import 'otp_result.dart';
 import 'secure_store.dart';
 
-/// Free, server-less 4-digit OTP over email via EmailJS.
+/// Free, server-less 4-digit OTP over email via Brevo transactional email.
 ///
 /// Trade-off (no paid backend): the code is generated on-device, emailed via
-/// EmailJS, and the active record is kept in encrypted secure storage so it
+/// Brevo's transactional API, and the active record is kept in encrypted
+/// secure storage so it
 /// survives screen rebuilds and app restarts. Verification compares the entered
 /// code locally. A normal user receives a real code and it works; a malicious
 /// user could bypass the check, but real gate access is still gated by admin
@@ -26,8 +27,6 @@ class EmailOtpService {
   static const Duration _cooldown = Duration(seconds: 60);
   static const int _maxAttempts = 5;
 
-  static const String _endpoint = 'https://api.emailjs.com/api/v1.0/email/send';
-
   String _key(String uid) => 'email_otp_$uid';
 
   /// Generate a fresh code, email it, and store the record. Enforces the
@@ -37,7 +36,7 @@ class EmailOtpService {
     required String email,
     required String locale,
   }) async {
-    if (!EmailJsConfig.isConfigured) return const OtpError();
+    if (!BrevoConfig.isConfigured) return const OtpError();
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final existing = await _read(uid);
@@ -97,32 +96,50 @@ class EmailOtpService {
     required String code,
     required String locale,
   }) async {
+    final isAr = locale == 'ar';
+    final subject = isAr ? 'رمز التحقق' : 'Verification code';
     try {
       final res = await http
           .post(
-            Uri.parse(_endpoint),
-            headers: const {
-              'Content-Type': 'application/json',
-              // EmailJS strict mode keys off Origin; a stable value keeps
-              // non-browser calls consistent.
-              'origin': 'http://localhost',
+            Uri.parse(BrevoConfig.endpoint),
+            headers: {
+              'accept': 'application/json',
+              'content-type': 'application/json',
+              'api-key': BrevoConfig.apiKey,
             },
             body: jsonEncode({
-              'service_id': EmailJsConfig.serviceId,
-              'template_id': EmailJsConfig.templateId,
-              'user_id': EmailJsConfig.publicKey,
-              'template_params': {
-                'email': email,
-                'passcode': code,
-                'locale': locale,
+              'sender': {
+                'name': BrevoConfig.senderName,
+                'email': BrevoConfig.senderEmail,
               },
+              'to': [
+                {'email': email},
+              ],
+              'subject': subject,
+              'htmlContent': _buildHtml(code: code, isAr: isAr),
             }),
           )
           .timeout(const Duration(seconds: 20));
-      return res.statusCode == 200;
+      // Brevo returns 201 Created on a successfully queued transactional email.
+      return res.statusCode == 201 || res.statusCode == 200;
     } on Exception {
       return false;
     }
+  }
+
+  String _buildHtml({required String code, required bool isAr}) {
+    final dir = isAr ? 'rtl' : 'ltr';
+    final intro =
+        isAr ? 'رمز التحقق الخاص بك هو:' : 'Your verification code is:';
+    final note = isAr
+        ? 'صالح لمدة 10 دقائق. إذا لم تطلب هذا الرمز، تجاهل هذه الرسالة.'
+        : 'Valid for 10 minutes. If you did not request this code, ignore this email.';
+    return '<div dir="$dir" style="font-family:sans-serif;text-align:center">'
+        '<p style="font-size:16px">$intro</p>'
+        '<p style="font-size:40px;font-weight:bold;letter-spacing:8px;'
+        'margin:16px 0">$code</p>'
+        '<p style="font-size:13px;color:#666">$note</p>'
+        '</div>';
   }
 
   Future<Map<String, dynamic>?> _read(String uid) async {

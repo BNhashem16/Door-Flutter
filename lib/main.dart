@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import './auth/app_lock.dart';
 import './auth/auth_gate.dart';
 import './auth/auth_service.dart';
@@ -15,6 +16,14 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Load Brevo (and other) secrets from the bundled .env asset. Non-fatal if
+  // missing — BrevoConfig.isConfigured then stays false and OTP send returns
+  // OtpError instead of crashing.
+  try {
+    await dotenv.load(fileName: '.env');
+  } on Exception {
+    // .env absent or unreadable; leave dotenv empty.
+  }
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
