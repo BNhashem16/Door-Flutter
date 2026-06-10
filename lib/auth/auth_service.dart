@@ -4,7 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 
+import '../logs/gate_log.dart';
 import 'device_session.dart';
+import 'email_otp_service.dart';
+import 'otp_result.dart';
+
+export 'otp_result.dart';
 
 /// User account status controlled by an admin.
 enum UserStatus { pending, approved, rejected, unknown }
@@ -24,6 +29,7 @@ class AppUser {
     this.apartment = '',
     this.bio = '',
     this.activeDevice = '',
+    this.emailVerified = false,
   });
 
   final String uid;
@@ -34,6 +40,11 @@ class AppUser {
   final int createdAt;
   final String apartment;
   final String bio;
+
+  /// Whether the user confirmed ownership of [email] via the 4-digit OTP.
+  /// Flipped to `true` only by the verify Cloud Function (Admin SDK write);
+  /// owners cannot self-set it (see `database.rules.json`).
+  final bool emailVerified;
 
   /// Id of the device currently allowed to use this account (single-device).
   final String activeDevice;
@@ -52,6 +63,7 @@ class AppUser {
       apartment: (map['apartment'] ?? '') as String,
       bio: (map['bio'] ?? '') as String,
       activeDevice: (map['activeDevice'] ?? '') as String,
+      emailVerified: map['emailVerified'] == true,
     );
   }
 
@@ -69,6 +81,8 @@ class AppUser {
       createdAt: createdAt,
       apartment: apartment ?? this.apartment,
       bio: bio ?? this.bio,
+      activeDevice: activeDevice,
+      emailVerified: emailVerified,
     );
   }
 
@@ -85,6 +99,7 @@ class AppUser {
         'createdAt': createdAt,
         'apartment': apartment,
         'bio': bio,
+        'emailVerified': emailVerified,
       };
 
   static UserStatus _statusFrom(String? raw) => switch (raw) {
@@ -97,8 +112,12 @@ class AppUser {
 
 /// Wraps FirebaseAuth + Realtime Database user records.
 class AuthService {
-  AuthService({FirebaseAuth? auth, FirebaseDatabase? db})
-      : _auth = auth ?? FirebaseAuth.instance,
+  AuthService({
+    FirebaseAuth? auth,
+    FirebaseDatabase? db,
+    EmailOtpService? otp,
+  })  : _auth = auth ?? FirebaseAuth.instance,
+        _otp = otp ?? EmailOtpService(),
         _db = db ??
             FirebaseDatabase.instanceFor(
               app: Firebase.app(),
@@ -110,6 +129,7 @@ class AuthService {
 
   final FirebaseAuth _auth;
   final FirebaseDatabase _db;
+  final EmailOtpService _otp;
 
   User? get currentUser => _auth.currentUser;
 
@@ -130,8 +150,37 @@ class AuthService {
     });
   }
 
-  /// Register with email/password and create a pending profile record.
-  Future<void> register({
+  /// Local storage namespace for a pre-account registration OTP, keyed by the
+  /// normalized email (no uid exists yet at this stage).
+  String _regKey(String email) => 'reg:${email.trim().toLowerCase()}';
+
+  /// Send a 4-digit OTP to [email] BEFORE any account is created, so an
+  /// unverified email never lands a row in the database. [locale] (`ar`|`en`)
+  /// selects the email language. Returns [OtpOk], [OtpCooldown] during the
+  /// resend cooldown, or [OtpError] (email failed / Brevo not configured).
+  Future<OtpResult> sendRegistrationOtp({
+    required String email,
+    required String locale,
+  }) {
+    return _otp.send(uid: _regKey(email), email: email.trim(), locale: locale);
+  }
+
+  /// Check the registration [code] for [email]. Does NOT create the account —
+  /// call [completeRegistration] after this returns [OtpOk].
+  Future<OtpResult> verifyRegistrationOtp({
+    required String email,
+    required String code,
+  }) {
+    return _otp.verify(uid: _regKey(email), code: code);
+  }
+
+  /// Create the Firebase Auth user and the pending profile record AFTER the
+  /// email OTP has been verified. createUser auto-signs-in, so [AuthGate]
+  /// routes the new (pending) user to the pending screen. The profile is
+  /// written with `emailVerified: false` because the security rules require it
+  /// on owner-create; email ownership is already proven by the OTP step.
+  /// Throws [FirebaseAuthException] (e.g. `email-already-in-use`).
+  Future<void> completeRegistration({
     required String email,
     required String password,
     required String name,
@@ -150,6 +199,22 @@ class AuthService {
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     await _userRef(uid).set(profile.toMap());
+    await _otp.clear(_regKey(email));
+  }
+
+  /// Forgot-password (user is signed OUT): trigger Firebase's built-in
+  /// password-reset email to [email]. Firebase sends a secure reset link
+  /// (localized by [locale], `ar`|`en`) from its own authenticated mailer; the
+  /// user sets a new password from it. Free — no paid backend required.
+  ///
+  /// Throws [FirebaseAuthException]; callers should treat `user-not-found` as
+  /// success to avoid revealing which emails are registered.
+  Future<void> sendPasswordResetEmail({
+    required String email,
+    required String locale,
+  }) async {
+    await _auth.setLanguageCode(locale);
+    await _auth.sendPasswordResetEmail(email: email.trim());
   }
 
   Future<void> signIn({
@@ -167,6 +232,37 @@ class AuthService {
       final deviceId = await DeviceSession.id();
       await _userRef(uid).update({'activeDevice': deviceId});
     }
+  }
+
+  /// Verify the current user's password against Firebase. Throws a
+  /// [FirebaseAuthException] (`wrong-password`/`invalid-credential`) on mismatch.
+  /// Used to confirm identity before saving credentials for biometric unlock.
+  Future<void> reauthenticate(String password) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) {
+      throw FirebaseAuthException(code: 'no-current-user');
+    }
+    final credential =
+        EmailAuthProvider.credential(email: email, password: password);
+    await user.reauthenticateWithCredential(credential);
+  }
+
+  /// Signed-in owner: change own password. Reauthenticates with
+  /// [currentPassword] (proves identity, satisfies Firebase's recent-login
+  /// requirement) then sets [newPassword]. Throws [FirebaseAuthException]
+  /// (`wrong-password`/`invalid-credential` on a bad current password,
+  /// `weak-password` on a short new one, `no-current-user` if signed out).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'no-current-user');
+    }
+    await reauthenticate(currentPassword);
+    await user.updatePassword(newPassword);
   }
 
   /// The id of the device currently bound to this install.
@@ -231,13 +327,79 @@ class AuthService {
     });
   }
 
-  /// Admin: delete a user's profile record.
+  // --- Gate access logs (/gate_logs/{uid}/{logId}) ---
+
+  /// In-app write of a gate action. Runs as the signed-in user, so the RTDB
+  /// rule `auth.uid === $uid` authorizes the write. Server-stamps the time.
+  Future<void> logGateAction({
+    required String uid,
+    required String name,
+    required GateAction action,
+    required GateSource source,
+  }) {
+    return _db.ref('gate_logs/$uid').push().set({
+      'name': name.trim(),
+      'action': action == GateAction.open ? 'open' : 'close',
+      'source': source == GateSource.widget ? 'widget' : 'app',
+      'timestamp': ServerValue.timestamp,
+    });
+  }
+
+  /// Owner/admin: live stream of one user's gate logs, newest first.
+  Stream<List<GateLog>> watchUserLogs(String uid) {
+    final ref = _db.ref('gate_logs/$uid');
+    return ref.onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <GateLog>[];
+      return value.entries
+          .where((e) => e.value is Map)
+          .map((e) => GateLog.fromMap(e.key as String, uid, e.value as Map))
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    });
+  }
+
+  /// Admin: live stream of every user's gate logs, flattened, newest first.
+  Stream<List<GateLog>> watchAllLogs() {
+    return _db.ref('gate_logs').onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <GateLog>[];
+      final logs = <GateLog>[];
+      for (final userEntry in value.entries) {
+        final uid = userEntry.key as String;
+        final userLogs = userEntry.value;
+        if (userLogs is! Map) continue;
+        for (final logEntry in userLogs.entries) {
+          if (logEntry.value is Map) {
+            logs.add(GateLog.fromMap(
+                logEntry.key as String, uid, logEntry.value as Map));
+          }
+        }
+      }
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
+    });
+  }
+
+  /// Admin: remove a user's Realtime Database records.
   ///
-  /// NOTE: this removes the RTDB profile only. The underlying Firebase Auth
-  /// account cannot be deleted from the client — that needs the Admin SDK
-  /// (a Cloud Function). After this, the user falls back to the pending screen
-  /// if still signed in elsewhere, and can no longer reach the gate.
-  Future<void> deleteUser(String uid) => _userRef(uid).remove();
+  /// Atomically deletes the RTDB profile (/app_users/{uid}) and the user's
+  /// gate access logs (/gate_logs/{uid}) in a single multi-location update.
+  /// The security rules permit this only when the caller is an admin.
+  ///
+  /// Note: this is a client-side delete and CANNOT remove the Firebase Auth
+  /// account (only the Admin SDK can). The Auth record is orphaned — the user
+  /// can no longer sign in (their profile is gone), but the email stays
+  /// reserved in Auth and cannot be reused for a fresh registration.
+  ///
+  /// Throws on failure (e.g. the rules reject the write if the caller is not
+  /// an admin).
+  Future<void> deleteUser(String uid) async {
+    await _db.ref().update(<String, Object?>{
+      'app_users/$uid': null,
+      'gate_logs/$uid': null,
+    });
+  }
 
   static String _roleRaw(UserRole role) =>
       role == UserRole.admin ? 'admin' : 'user';

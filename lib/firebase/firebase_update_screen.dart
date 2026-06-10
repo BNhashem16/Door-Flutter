@@ -4,7 +4,9 @@ import 'dart:async';
 import '../admin/admin_screen.dart';
 import '../auth/auth_service.dart';
 import '../gate/gate_service.dart';
+import '../gate/gate_sound.dart';
 import '../l10n/app_strings.dart';
+import '../logs/gate_log.dart';
 import '../profile/profile_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/initials_avatar.dart';
@@ -41,19 +43,30 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   bool _hasState = false; // first snapshot received?
   _Conn _conn = _Conn.connecting;
 
+  /// Most recent OPEN action by this user (null = never opened).
+  GateLog? _lastOpen;
+
+  /// Count of OPEN actions by this user since local midnight.
+  int _opensToday = 0;
+
   final GateService _gate = GateService();
+  final GateSound _sound = GateSound();
   StreamSubscription<bool>? _stateSub;
+  StreamSubscription<List<GateLog>>? _logsSub;
 
   @override
   void initState() {
     super.initState();
     _listenToGate();
+    _listenToLogs();
   }
 
   @override
   void dispose() {
     _stateSub?.cancel();
+    _logsSub?.cancel();
     _gate.dispose();
+    _sound.dispose();
     super.dispose();
   }
 
@@ -77,6 +90,26 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     );
   }
 
+  /// Live-derive the last-open record and today's open count from this user's
+  /// own gate logs (owner-readable). Logs arrive newest-first.
+  void _listenToLogs() {
+    final uid = widget.authService.currentUser?.uid;
+    if (uid == null) return;
+    _logsSub = widget.authService.watchUserLogs(uid).listen((logs) {
+      if (!mounted) return;
+      final opens = logs.where((l) => l.action == GateAction.open).toList();
+      final now = DateTime.now();
+      final midnight = DateTime(now.year, now.month, now.day);
+      setState(() {
+        _lastOpen = opens.isEmpty ? null : opens.first;
+        _opensToday = opens
+            .where((l) => DateTime.fromMillisecondsSinceEpoch(l.timestamp)
+                .isAfter(midnight))
+            .length;
+      });
+    }, onError: (_) {/* non-fatal: activity card just stays empty */});
+  }
+
   Future<void> _toggleGate() async {
     setState(() {
       _isLoading = true;
@@ -85,9 +118,19 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     try {
       // Write only — the live stream reflects the new state back to the UI.
       final newOpen = await _gate.setOpen(!_gateStatus);
+      final uid = widget.authService.currentUser?.uid;
+      if (uid != null) {
+        unawaited(widget.authService.logGateAction(
+          uid: uid,
+          name: widget.userName,
+          action: newOpen ? GateAction.open : GateAction.close,
+          source: GateSource.app,
+        ));
+      }
+      // Audible + haptic feedback matching the new state (fire-and-forget).
+      unawaited(_sound.play(open: newOpen));
       if (!mounted) return;
-      final s = AppStrings.of(context);
-      _showSuccessSnackBar(newOpen ? s.gateOpened : s.gateClosedMsg);
+      _showGateSnack(open: newOpen);
     } catch (error) {
       if (!mounted) return;
       _showErrorSnackBar(AppStrings.of(context).connectionError(error));
@@ -100,24 +143,112 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     }
   }
 
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+  /// Designed result toast for a successful open/close.
+  void _showGateSnack({required bool open}) {
+    final colors = Theme.of(context).extension<AppColors>()!;
+    final s = AppStrings.of(context);
+    _showStyledSnack(
+      accent: open ? colors.success : colors.danger,
+      icon: open ? Icons.lock_open_rounded : Icons.lock_rounded,
+      title: open ? s.gateOpened : s.gateClosedMsg,
+      subtitle: open ? s.tapToClose : s.tapToOpen,
     );
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final colors = Theme.of(context).extension<AppColors>()!;
+    _showStyledSnack(
+      accent: colors.danger,
+      icon: Icons.error_outline_rounded,
+      title: message,
+    );
+  }
+
+  /// Shared card-style floating snackbar: accent rail + icon badge + text.
+  /// Adapts to light/dark via the theme surface tokens.
+  void _showStyledSnack({
+    required Color accent,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+  }) {
+    final theme = Theme.of(context);
+    final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        padding: EdgeInsets.zero,
+        duration: const Duration(milliseconds: 2200),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        dismissDirection: DismissDirection.horizontal,
+        content: DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: accent.withValues(alpha: 0.35)),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(width: 5, color: accent),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: accent, size: 22),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        right: AppSpacing.md,
+                        top: AppSpacing.sm,
+                        bottom: AppSpacing.sm,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -184,6 +315,18 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.lg),
           child: Column(
             children: [
+              if (widget.userName.trim().isNotEmpty) ...[
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    s.greeting(widget.userName.trim()),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
               _connectionPill(colors),
               const SizedBox(height: AppSpacing.xl),
               _heroRing(colors),
@@ -204,6 +347,8 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               const SizedBox(height: AppSpacing.xl),
               _toggleButton(colors),
               const SizedBox(height: AppSpacing.lg),
+              _activityCard(theme, colorScheme, colors),
+              const SizedBox(height: AppSpacing.md),
               _infoCard(theme, colorScheme),
             ],
           ),
@@ -353,6 +498,127 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               ),
       ),
     );
+  }
+
+  /// Activity card: last gate opening (relative + absolute) and today's count.
+  Widget _activityCard(
+      ThemeData theme, ColorScheme colorScheme, AppColors colors) {
+    final s = AppStrings.of(context);
+    final last = _lastOpen;
+    final lastValue =
+        last == null ? s.neverOpened : _relativeTime(last.timestamp, s);
+
+    return SectionCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.history_rounded, color: colorScheme.primary, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              Text(s.activityTitle, style: theme.textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _statTile(
+                    theme: theme,
+                    colors: colors,
+                    icon: Icons.lock_open_rounded,
+                    accent: colors.success,
+                    label: s.lastOpenLabel,
+                    value: lastValue,
+                    caption:
+                        last == null ? null : _formatTimestamp(last.timestamp),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _statTile(
+                    theme: theme,
+                    colors: colors,
+                    icon: Icons.today_rounded,
+                    accent: colorScheme.primary,
+                    label: s.opensTodayLabel,
+                    value: '$_opensToday',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statTile({
+    required ThemeData theme,
+    required AppColors colors,
+    required IconData icon,
+    required Color accent,
+    required String label,
+    required String value,
+    String? caption,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent, size: 22),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: accent,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: theme.textTheme.labelSmall),
+          if (caption != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              caption,
+              style: theme.textTheme.labelSmall,
+              textDirection: TextDirection.ltr,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Coarse relative time ("Just now", "5m ago", "3h ago", "2d ago").
+  String _relativeTime(int ms, AppStrings s) {
+    if (ms == 0) return s.neverOpened;
+    final diff =
+        DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ms));
+    if (diff.inMinutes < 1) return s.timeJustNow;
+    if (diff.inMinutes < 60) return s.timeMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return s.timeHoursAgo(diff.inHours);
+    return s.timeDaysAgo(diff.inDays);
+  }
+
+  /// Locale-neutral `yyyy/MM/dd HH:mm` from epoch ms.
+  String _formatTimestamp(int ms) {
+    if (ms == 0) return '';
+    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${dt.year}/${two(dt.month)}/${two(dt.day)} '
+        '${two(dt.hour)}:${two(dt.minute)}';
   }
 
   Widget _infoCard(ThemeData theme, ColorScheme colorScheme) {

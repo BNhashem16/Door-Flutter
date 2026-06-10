@@ -101,5 +101,35 @@ class GateService {
     return newOpen;
   }
 
+  /// Best-effort REST push of a gate access log for the headless widget path
+  /// (no Firebase Auth/SDK available there). Writes to `/gate_logs/{uid}` with
+  /// the embedded device token, which bypasses the security rules. Never throws
+  /// — a failed log must not break the gate toggle.
+  Future<void> logAction({
+    required String uid,
+    required String name,
+    required bool open,
+  }) async {
+    if (uid.isEmpty) return;
+    final url = '$_databaseUrl/gate_logs/$uid.json'
+        '?auth=VSV5R6QkmXOT12rrR6fuawILTpJdM8GjUQhiyShM';
+    try {
+      await _client
+          .post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'name': name,
+              'action': open ? 'open' : 'close',
+              'source': 'widget',
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+            }),
+          )
+          .timeout(_timeout);
+    } catch (_) {
+      // Best-effort: swallow logging failures.
+    }
+  }
+
   void dispose() => _client.close();
 }

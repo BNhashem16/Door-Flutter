@@ -46,6 +46,42 @@ abstract class AppStrings {
   String get emailInvalid;
   String get passwordTooShort;
 
+  // Verify email (4-digit OTP)
+  String get verifyEmailTitle;
+  String verifyEmailBody(String email);
+  String get verifyEmailWaiting;
+  String get verifyEmailResend;
+  String verifyEmailResendIn(int seconds);
+  String get verifyEmailResent;
+  String get verifyEmailCheckButton;
+  String get verifyEmailNotYet;
+  String get verifyEmailVerified;
+  String get enterCodeHint;
+  String get otpSentToast;
+  String get otpSendFailed;
+  String get accountCreated;
+  String otpWrong(int attemptsLeft);
+  String get otpExpired;
+  String get otpTooManyAttempts;
+  String otpCooldown(int seconds);
+  String get verifyCodeButton;
+
+  // Forgot password (signed out) + change password (signed in)
+  String get forgotPassword;
+  String get forgotPasswordTitle;
+  String get forgotPasswordBody;
+  String get sendResetLinkButton;
+  String get resetLinkSent;
+  String get newPassword;
+  String get confirmPassword;
+  String get passwordsDoNotMatch;
+  String get changePassword;
+  String get changePasswordTitle;
+  String get currentPassword;
+  String get updatePasswordButton;
+  String get passwordChanged;
+  String changePasswordError(String code);
+
   // Pending / rejected
   String get pendingTitle;
   String get pendingBody;
@@ -100,8 +136,30 @@ abstract class AppStrings {
   String get syncLabel;
   String get syncLive;
 
+  // Activity / last-open
+  String greeting(String name);
+  String get activityTitle;
+  String get lastOpenLabel;
+  String get opensTodayLabel;
+  String get neverOpened;
+  String get timeJustNow;
+  String timeMinutesAgo(int n);
+  String timeHoursAgo(int n);
+  String timeDaysAgo(int n);
+
   // Home-screen widget
   String get widgetLoginRequired;
+
+  // Gate access logs
+  String get logsTitle;
+  String get logsLoadError;
+  String get noLogs;
+  String get logActionOpen;
+  String get logActionClose;
+  String get logSourceApp;
+  String get logSourceWidget;
+  String get myLogsButton;
+  String get allLogsTooltip;
 
   // Profile
   String get profileTitle;
@@ -111,6 +169,20 @@ abstract class AppStrings {
   String get bio;
   String get notAddedYet;
   String get editProfile;
+
+  // Biometric lock
+  String get biometricLockLabel;
+  String get biometricLockSubtitle;
+  String get biometricUnavailable;
+  String get biometricEnableScanReason;
+  String get biometricUnlockReason;
+  String get signInWithFingerprint;
+  String get lockTitle;
+  String get unlockWithFingerprint;
+  String get usePasswordInstead;
+  String get wrongPassword;
+  String get enableBiometricPasswordPrompt;
+  String get confirm;
 
   // Profile edit
   String get saveChangesSuccess;
@@ -124,6 +196,11 @@ abstract class AppStrings {
   String get statusRejected;
   String get statusPending;
   String get statusUnknown;
+
+  // Connectivity (offline blocker)
+  String get offlineTitle;
+  String get offlineBody;
+  String get retry;
 
   // Dynamic messages
   String get unexpectedError;
@@ -169,6 +246,83 @@ class _Ar implements AppStrings {
   String get emailInvalid => 'أدخل بريدًا إلكترونيًا صحيحًا';
   @override
   String get passwordTooShort => 'كلمة المرور 6 أحرف على الأقل';
+
+  @override
+  String get verifyEmailTitle => 'تأكيد البريد الإلكتروني';
+  @override
+  String verifyEmailBody(String email) =>
+      'أرسلنا رمزًا مكوّنًا من 4 أرقام إلى\n$email\nأدخل الرمز أدناه لتفعيل حسابك.';
+  @override
+  String get verifyEmailWaiting => 'بانتظار التأكيد…';
+  @override
+  String get verifyEmailResend => 'إعادة إرسال الرمز';
+  @override
+  String verifyEmailResendIn(int seconds) => 'إعادة الإرسال خلال $seconds ث';
+  @override
+  String get verifyEmailResent => 'تم إرسال الرمز';
+  @override
+  String get verifyEmailCheckButton => 'تأكيد';
+  @override
+  String get verifyEmailNotYet => 'لم يتم تأكيد البريد بعد';
+  @override
+  String get verifyEmailVerified => 'تم تأكيد بريدك بنجاح';
+  @override
+  String get enterCodeHint => 'أدخل الرمز المكوّن من 4 أرقام';
+  @override
+  String get otpSentToast => 'تم إرسال الرمز إلى بريدك';
+  @override
+  String get otpSendFailed => 'تعذّر إرسال الرمز. تحقّق من بريدك وحاول مجددًا';
+  @override
+  String get accountCreated => 'تم إنشاء حسابك بنجاح';
+  @override
+  String otpWrong(int attemptsLeft) =>
+      'رمز غير صحيح. المحاولات المتبقية: $attemptsLeft';
+  @override
+  String get otpExpired => 'انتهت صلاحية الرمز. أعد طلب رمز جديد';
+  @override
+  String get otpTooManyAttempts => 'محاولات كثيرة جدًا. أعد طلب رمز جديد';
+  @override
+  String otpCooldown(int seconds) => 'انتظر $seconds ث قبل إعادة الإرسال';
+  @override
+  String get verifyCodeButton => 'تأكيد الرمز';
+
+  @override
+  String get forgotPassword => 'نسيت كلمة المرور؟';
+  @override
+  String get forgotPasswordTitle => 'إعادة تعيين كلمة المرور';
+  @override
+  String get forgotPasswordBody =>
+      'أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور.';
+  @override
+  String get sendResetLinkButton => 'إرسال الرابط';
+  @override
+  String get resetLinkSent =>
+      'إذا كان هذا البريد مسجّلاً، فسيصلك رابط إعادة تعيين كلمة المرور.';
+  @override
+  String get newPassword => 'كلمة المرور الجديدة';
+  @override
+  String get confirmPassword => 'تأكيد كلمة المرور';
+  @override
+  String get passwordsDoNotMatch => 'كلمتا المرور غير متطابقتين';
+  @override
+  String get changePassword => 'تغيير كلمة المرور';
+  @override
+  String get changePasswordTitle => 'تغيير كلمة المرور';
+  @override
+  String get currentPassword => 'كلمة المرور الحالية';
+  @override
+  String get updatePasswordButton => 'تحديث كلمة المرور';
+  @override
+  String get passwordChanged => 'تم تغيير كلمة المرور بنجاح';
+  @override
+  String changePasswordError(String code) => switch (code) {
+        'wrong-password' ||
+        'invalid-credential' =>
+          'كلمة المرور الحالية غير صحيحة',
+        'weak-password' => 'كلمة المرور الجديدة ضعيفة',
+        'requires-recent-login' => 'يرجى تسجيل الدخول مجددًا ثم المحاولة',
+        _ => 'تعذّر تغيير كلمة المرور',
+      };
 
   @override
   String get pendingTitle => 'بانتظار الموافقة';
@@ -270,7 +424,45 @@ class _Ar implements AppStrings {
   String get syncLive => 'مباشرة (لحظية)';
 
   @override
+  String greeting(String name) => 'أهلاً، $name';
+  @override
+  String get activityTitle => 'النشاط';
+  @override
+  String get lastOpenLabel => 'آخر فتح للباب';
+  @override
+  String get opensTodayLabel => 'مرات الفتح اليوم';
+  @override
+  String get neverOpened => 'لا يوجد بعد';
+  @override
+  String get timeJustNow => 'الآن';
+  @override
+  String timeMinutesAgo(int n) => 'منذ $n دقيقة';
+  @override
+  String timeHoursAgo(int n) => 'منذ $n ساعة';
+  @override
+  String timeDaysAgo(int n) => 'منذ $n يوم';
+
+  @override
   String get widgetLoginRequired => 'سجّل الدخول أولاً';
+
+  @override
+  String get logsTitle => 'سجل الوصول';
+  @override
+  String get logsLoadError => 'تعذّر تحميل السجل';
+  @override
+  String get noLogs => 'لا يوجد سجل بعد';
+  @override
+  String get logActionOpen => 'فتح';
+  @override
+  String get logActionClose => 'إغلاق';
+  @override
+  String get logSourceApp => 'من التطبيق';
+  @override
+  String get logSourceWidget => 'من الأداة';
+  @override
+  String get myLogsButton => 'سجل وصولي';
+  @override
+  String get allLogsTooltip => 'سجل وصول الجميع';
 
   @override
   String get profileTitle => 'الملف الشخصي';
@@ -286,6 +478,31 @@ class _Ar implements AppStrings {
   String get notAddedYet => 'لم يُضف بعد';
   @override
   String get editProfile => 'تعديل الملف';
+
+  @override
+  String get biometricLockLabel => 'قفل البصمة';
+  @override
+  String get biometricLockSubtitle => 'افتح التطبيق ببصمتك';
+  @override
+  String get biometricUnavailable => 'لا توجد بصمة مسجّلة على هذا الجهاز';
+  @override
+  String get biometricEnableScanReason => 'أكّد بصمتك لتفعيل القفل';
+  @override
+  String get biometricUnlockReason => 'افتح التطبيق ببصمتك';
+  @override
+  String get signInWithFingerprint => 'الدخول بالبصمة';
+  @override
+  String get lockTitle => 'التطبيق مقفول';
+  @override
+  String get unlockWithFingerprint => 'افتح بالبصمة';
+  @override
+  String get usePasswordInstead => 'استخدم كلمة المرور';
+  @override
+  String get wrongPassword => 'كلمة المرور غير صحيحة';
+  @override
+  String get enableBiometricPasswordPrompt => 'أدخل كلمة المرور لتفعيل القفل';
+  @override
+  String get confirm => 'تأكيد';
 
   @override
   String get saveChangesSuccess => 'تم حفظ التغييرات';
@@ -306,6 +523,14 @@ class _Ar implements AppStrings {
   String get statusPending => 'قيد الانتظار';
   @override
   String get statusUnknown => 'غير معروف';
+
+  @override
+  String get offlineTitle => 'لا يوجد اتصال بالإنترنت';
+  @override
+  String get offlineBody =>
+      'تحقّق من اتصالك بالشبكة وحاول مرة أخرى. التطبيق متوقف حتى يعود الاتصال.';
+  @override
+  String get retry => 'إعادة المحاولة';
 
   @override
   String get unexpectedError => 'حدث خطأ غير متوقع';
@@ -368,6 +593,84 @@ class _En implements AppStrings {
   String get emailInvalid => 'Enter a valid email';
   @override
   String get passwordTooShort => 'Password must be at least 6 characters';
+
+  @override
+  String get verifyEmailTitle => 'Verify your email';
+  @override
+  String verifyEmailBody(String email) =>
+      'We sent a 4-digit code to\n$email\nEnter the code below to activate your account.';
+  @override
+  String get verifyEmailWaiting => 'Waiting for confirmation…';
+  @override
+  String get verifyEmailResend => 'Resend code';
+  @override
+  String verifyEmailResendIn(int seconds) => 'Resend in ${seconds}s';
+  @override
+  String get verifyEmailResent => 'Code sent';
+  @override
+  String get verifyEmailCheckButton => 'Verify';
+  @override
+  String get verifyEmailNotYet => 'Email not verified yet';
+  @override
+  String get verifyEmailVerified => 'Your email has been verified';
+  @override
+  String get enterCodeHint => 'Enter the 4-digit code';
+  @override
+  String get otpSentToast => 'Code sent to your email';
+  @override
+  String get otpSendFailed =>
+      'Could not send the code. Check your email and try again';
+  @override
+  String get accountCreated => 'Your account has been created';
+  @override
+  String otpWrong(int attemptsLeft) =>
+      'Wrong code. Attempts left: $attemptsLeft';
+  @override
+  String get otpExpired => 'The code expired. Request a new one';
+  @override
+  String get otpTooManyAttempts => 'Too many attempts. Request a new code';
+  @override
+  String otpCooldown(int seconds) => 'Wait ${seconds}s before resending';
+  @override
+  String get verifyCodeButton => 'Verify code';
+
+  @override
+  String get forgotPassword => 'Forgot password?';
+  @override
+  String get forgotPasswordTitle => 'Reset password';
+  @override
+  String get forgotPasswordBody =>
+      "Enter your email and we'll send you a link to reset your password.";
+  @override
+  String get sendResetLinkButton => 'Send link';
+  @override
+  String get resetLinkSent =>
+      'If that email is registered, a password reset link is on its way.';
+  @override
+  String get newPassword => 'New password';
+  @override
+  String get confirmPassword => 'Confirm password';
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match';
+  @override
+  String get changePassword => 'Change password';
+  @override
+  String get changePasswordTitle => 'Change password';
+  @override
+  String get currentPassword => 'Current password';
+  @override
+  String get updatePasswordButton => 'Update password';
+  @override
+  String get passwordChanged => 'Password changed successfully';
+  @override
+  String changePasswordError(String code) => switch (code) {
+        'wrong-password' ||
+        'invalid-credential' =>
+          'Current password is incorrect',
+        'weak-password' => 'The new password is too weak',
+        'requires-recent-login' => 'Please sign in again, then try',
+        _ => 'Could not change the password',
+      };
 
   @override
   String get pendingTitle => 'Awaiting approval';
@@ -469,7 +772,45 @@ class _En implements AppStrings {
   String get syncLive => 'Live (instant)';
 
   @override
+  String greeting(String name) => 'Hi, $name';
+  @override
+  String get activityTitle => 'Activity';
+  @override
+  String get lastOpenLabel => 'Last gate opening';
+  @override
+  String get opensTodayLabel => 'Opens today';
+  @override
+  String get neverOpened => 'None yet';
+  @override
+  String get timeJustNow => 'Just now';
+  @override
+  String timeMinutesAgo(int n) => '${n}m ago';
+  @override
+  String timeHoursAgo(int n) => '${n}h ago';
+  @override
+  String timeDaysAgo(int n) => '${n}d ago';
+
+  @override
   String get widgetLoginRequired => 'Sign in first';
+
+  @override
+  String get logsTitle => 'Access log';
+  @override
+  String get logsLoadError => 'Failed to load the log';
+  @override
+  String get noLogs => 'No log entries yet';
+  @override
+  String get logActionOpen => 'Open';
+  @override
+  String get logActionClose => 'Close';
+  @override
+  String get logSourceApp => 'From app';
+  @override
+  String get logSourceWidget => 'From widget';
+  @override
+  String get myLogsButton => 'My access log';
+  @override
+  String get allLogsTooltip => 'All access logs';
 
   @override
   String get profileTitle => 'Profile';
@@ -485,6 +826,33 @@ class _En implements AppStrings {
   String get notAddedYet => 'Not added yet';
   @override
   String get editProfile => 'Edit profile';
+
+  @override
+  String get biometricLockLabel => 'Fingerprint lock';
+  @override
+  String get biometricLockSubtitle => 'Unlock the app with your fingerprint';
+  @override
+  String get biometricUnavailable => 'No fingerprint enrolled on this device';
+  @override
+  String get biometricEnableScanReason =>
+      'Confirm your fingerprint to enable the lock';
+  @override
+  String get biometricUnlockReason => 'Unlock the app with your fingerprint';
+  @override
+  String get signInWithFingerprint => 'Sign in with fingerprint';
+  @override
+  String get lockTitle => 'App locked';
+  @override
+  String get unlockWithFingerprint => 'Unlock with fingerprint';
+  @override
+  String get usePasswordInstead => 'Use password instead';
+  @override
+  String get wrongPassword => 'Incorrect password';
+  @override
+  String get enableBiometricPasswordPrompt =>
+      'Enter your password to enable the lock';
+  @override
+  String get confirm => 'Confirm';
 
   @override
   String get saveChangesSuccess => 'Changes saved';
@@ -505,6 +873,15 @@ class _En implements AppStrings {
   String get statusPending => 'Pending';
   @override
   String get statusUnknown => 'Unknown';
+
+  @override
+  String get offlineTitle => 'No internet connection';
+  @override
+  String get offlineBody =>
+      'Check your network connection and try again. The app is paused until '
+      "you're back online.";
+  @override
+  String get retry => 'Retry';
 
   @override
   String get unexpectedError => 'An unexpected error occurred';

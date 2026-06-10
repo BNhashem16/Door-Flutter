@@ -14,17 +14,30 @@ const String keyGateStatus = 'gate_status';
 const String keyGateState = 'gate_state'; // localized "Gate open/closed"
 const String keyGateAction = 'gate_action'; // localized "Tap to open/close"
 const String keyLoggedIn = 'widget_logged_in'; // gate the widget on auth
+const String keyUid = 'widget_uid'; // who, for headless log attribution
+const String keyName = 'widget_name'; // display name, for headless logs
 
-/// Persists whether a user is signed in, so the headless widget callback —
-/// which has no Firebase Auth — can decide if the gate may be controlled.
-/// Call `true` on sign-in, `false` on sign-out. Also redraws the widget so it
-/// reflects the new locked/unlocked state immediately.
-Future<void> setWidgetLoggedIn(bool loggedIn) async {
+/// Persists whether a user is signed in (plus uid/name for log attribution), so
+/// the headless widget callback — which has no Firebase Auth — can decide if the
+/// gate may be controlled and who to credit a tap to. Call with `true` + the
+/// user's uid/name on sign-in, `false` on sign-out. Also redraws the widget so
+/// it reflects the new locked/unlocked state immediately.
+Future<void> setWidgetLoggedIn(
+  bool loggedIn, {
+  String uid = '',
+  String name = '',
+}) async {
   await HomeWidget.saveWidgetData<bool>(keyLoggedIn, loggedIn);
-  if (!loggedIn) {
+  if (loggedIn) {
+    await HomeWidget.saveWidgetData<String>(keyUid, uid);
+    await HomeWidget.saveWidgetData<String>(keyName, name);
+  } else {
+    await HomeWidget.saveWidgetData<String>(keyUid, '');
+    await HomeWidget.saveWidgetData<String>(keyName, '');
     // Clear last-known gate state so a signed-out widget shows nothing stale.
     final s = await _strings();
-    await HomeWidget.saveWidgetData<String>(keyGateStatus, s.widgetLoginRequired);
+    await HomeWidget.saveWidgetData<String>(
+        keyGateStatus, s.widgetLoginRequired);
   }
   await _update();
 }
@@ -59,6 +72,11 @@ Future<void> gateWidgetTapped(Uri? uri) async {
     final current = await service.fetchState();
     final newOpen = await service.toggle(currentOpen: current);
     await _save(open: newOpen, status: s.connected, strings: s);
+    final uid =
+        await HomeWidget.getWidgetData<String>(keyUid, defaultValue: '') ?? '';
+    final name =
+        await HomeWidget.getWidgetData<String>(keyName, defaultValue: '') ?? '';
+    await service.logAction(uid: uid, name: name, open: newOpen);
   } catch (_) {
     await _save(open: null, status: s.disconnected, strings: s);
   } finally {
