@@ -521,33 +521,35 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _statTile(
-                  theme: theme,
-                  colors: colors,
-                  icon: Icons.lock_open_rounded,
-                  accent: colors.success,
-                  label: s.lastOpenLabel,
-                  value: lastValue,
-                  caption:
-                      last == null ? null : _formatTimestamp(last.timestamp),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _statTile(
+                    theme: theme,
+                    colors: colors,
+                    icon: Icons.lock_open_rounded,
+                    accent: colors.success,
+                    label: s.lastOpenLabel,
+                    value: lastValue,
+                    caption:
+                        last == null ? null : _formatTimestamp(last.timestamp),
+                  ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _statTile(
-                  theme: theme,
-                  colors: colors,
-                  icon: Icons.today_rounded,
-                  accent: colorScheme.primary,
-                  label: s.opensTodayLabel,
-                  value: '$_opensToday',
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _statTile(
+                    theme: theme,
+                    colors: colors,
+                    icon: Icons.today_rounded,
+                    accent: colorScheme.primary,
+                    label: s.opensTodayLabel,
+                    value: '$_opensToday',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
