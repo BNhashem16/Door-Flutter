@@ -13,6 +13,10 @@
 
 const crypto = require('crypto');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const {
+  onValueCreated,
+  onValueUpdated,
+} = require('firebase-functions/v2/database');
 const { defineSecret } = require('firebase-functions/params');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
@@ -234,10 +238,130 @@ const deleteUser = onCall(async (request) => {
   return { ok: true };
 });
 
+// ---------------------------------------------------------------------------
+// Push notifications (FCM) — RTDB-triggered
+// ---------------------------------------------------------------------------
+//
+// Tokens live at /fcm_tokens/{uid}/{token} = true (owner-written, see
+// database.rules.json). These triggers read them with the Admin SDK and fan
+// out via sendEachForMulticast. Two events:
+//   onNewPendingUser   — a new /app_users/{uid} (status=pending) → tell admins.
+//   onUserStatusChanged— /app_users/{uid}/status flips → tell that user.
+//
+// The RTDB instance is non-default ('microiot'), so every trigger pins
+// `instance` explicitly or it would bind to the wrong database.
+
+const DB_INSTANCE = 'microiot';
+
+// FCM error codes that mean the token is permanently dead — prune on sight.
+const DEAD_TOKEN_CODES = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+  'messaging/invalid-argument',
+]);
+
+// Returns [{ uid, token }] for a single user's saved devices.
+async function recipientsForUid(uid) {
+  const snap = await admin.database().ref(`/fcm_tokens/${uid}`).get();
+  if (!snap.exists()) return [];
+  return Object.keys(snap.val() || {}).map((token) => ({ uid, token }));
+}
+
+// Returns [{ uid, token }] for every admin's devices.
+async function adminRecipients() {
+  const snap = await admin
+    .database()
+    .ref('/app_users')
+    .orderByChild('role')
+    .equalTo('admin')
+    .get();
+  if (!snap.exists()) return [];
+  const uids = Object.keys(snap.val() || {});
+  const lists = await Promise.all(uids.map(recipientsForUid));
+  return lists.flat();
+}
+
+// Send `notification` (+ optional data) to recipients, pruning dead tokens.
+async function sendToRecipients(recipients, notification, data) {
+  if (recipients.length === 0) return;
+  const tokens = recipients.map((r) => r.token);
+
+  const res = await admin.messaging().sendEachForMulticast({
+    tokens,
+    notification,
+    data: data || {},
+    android: {
+      priority: 'high',
+      notification: { channelId: 'door_default', sound: 'default' },
+    },
+  });
+
+  const removals = [];
+  res.responses.forEach((r, i) => {
+    if (r.success) return;
+    const code = r.error && r.error.code;
+    if (DEAD_TOKEN_CODES.has(code)) {
+      const { uid, token } = recipients[i];
+      removals.push(admin.database().ref(`/fcm_tokens/${uid}/${token}`).remove());
+    }
+  });
+  await Promise.all(removals);
+}
+
+// New registration lands a pending profile → notify all admins.
+const onNewPendingUser = onValueCreated(
+  { ref: '/app_users/{uid}', instance: DB_INSTANCE },
+  async (event) => {
+    const profile = event.data.val();
+    if (!profile || profile.status !== 'pending') return;
+
+    const name = (profile.name && String(profile.name).trim()) || 'مستخدم جديد';
+    const recipients = await adminRecipients();
+    await sendToRecipients(
+      recipients,
+      { title: 'طلب انضمام جديد', body: `${name} بانتظار الموافقة` },
+      { type: 'pending_user', uid: event.params.uid },
+    );
+  },
+);
+
+// Admin approves/rejects → notify that user.
+const onUserStatusChanged = onValueUpdated(
+  { ref: '/app_users/{uid}/status', instance: DB_INSTANCE },
+  async (event) => {
+    const before = event.data.before.val();
+    const after = event.data.after.val();
+    if (before === after) return;
+
+    let notification;
+    if (after === 'approved') {
+      notification = {
+        title: 'تم قبول حسابك',
+        body: 'يمكنك الآن التحكم في البوابة',
+      };
+    } else if (after === 'rejected') {
+      notification = {
+        title: 'تم رفض الطلب',
+        body: 'لم تتم الموافقة على حسابك',
+      };
+    } else {
+      return;
+    }
+
+    const recipients = await recipientsForUid(event.params.uid);
+    await sendToRecipients(recipients, notification, {
+      type: 'status',
+      status: after,
+    });
+  },
+);
+
 module.exports = {
   sendEmailOtp,
   verifyEmailOtp,
   deleteUser,
+  onNewPendingUser,
+  onUserStatusChanged,
   // Exposed for unit tests (functions/test/otp.test.js).
   _internal: { sha256Hex, timingSafeEqualHex, generateCode, buildOtpRecord },
 };

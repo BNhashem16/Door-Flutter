@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../logs/gate_log.dart';
 import 'device_session.dart';
@@ -268,7 +269,33 @@ class AuthService {
   /// The id of the device currently bound to this install.
   Future<String> currentDeviceId() => DeviceSession.id();
 
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    // Best-effort: drop this device's push token for the signing-out user so it
+    // stops receiving their notifications. Must run while still authenticated
+    // (the RTDB rule requires auth.uid === $uid).
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      try {
+        final token = await FirebaseMessaging.instance.getToken();
+        if (token != null) await removeFcmToken(uid, token);
+      } on Exception {
+        // Token cleanup is non-critical; never block sign-out on it.
+      }
+    }
+    await _auth.signOut();
+  }
+
+  // --- FCM push tokens (/fcm_tokens/{uid}/{token}) ---
+
+  /// Owner: register this device's push token. Stored as a set of token keys so
+  /// a user with several devices receives notifications on all of them. Cloud
+  /// Functions read these via the Admin SDK to target a user/admin.
+  Future<void> saveFcmToken(String uid, String token) =>
+      _db.ref('fcm_tokens/$uid/$token').set(true);
+
+  /// Owner: drop one push token (on sign-out or when FCM reports it stale).
+  Future<void> removeFcmToken(String uid, String token) =>
+      _db.ref('fcm_tokens/$uid/$token').remove();
 
   /// Owner: update editable profile fields only (never role/status/email).
   Future<void> updateProfile(

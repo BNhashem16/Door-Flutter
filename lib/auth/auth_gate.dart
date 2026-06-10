@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../firebase/firebase_update_screen.dart';
 import '../gate/gate_widget_callback.dart';
 import '../l10n/app_strings.dart';
+import '../messaging/messaging_service.dart';
 import '../widgets/language_toggle_button.dart';
 import 'auth_service.dart';
 import 'login_screen.dart';
@@ -28,7 +31,12 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   final _authService = AuthService();
+  late final _messaging = MessagingService(authService: _authService);
   String? _deviceId;
+
+  /// Uid we last registered an FCM token for — avoids re-registering on every
+  /// stream rebuild.
+  String? _fcmUid;
 
   /// Last value pushed to the home-screen widget lock flag — avoids redundant
   /// SharedPreferences writes on every rebuild.
@@ -40,6 +48,16 @@ class _AuthGateState extends State<AuthGate> {
     _authService.currentDeviceId().then((id) {
       if (mounted) setState(() => _deviceId = id);
     });
+    unawaited(_messaging.init());
+  }
+
+  /// Register this device's push token once per signed-in user. Runs even for
+  /// pending users so they receive the approval notification. Guarded so it
+  /// fires once per uid despite the auth/profile stream rebuilding often.
+  void _ensureFcm(String uid) {
+    if (_fcmUid == uid) return;
+    _fcmUid = uid;
+    unawaited(_messaging.registerForUser(uid));
   }
 
   /// Keep the widget lock in sync with the resolved auth state. Only an
@@ -64,8 +82,10 @@ class _AuthGateState extends State<AuthGate> {
         final user = authSnap.data;
         if (user == null) {
           _syncWidget(false);
+          _fcmUid = null; // allow re-registration on next sign-in
           return LoginScreen(authService: _authService);
         }
+        _ensureFcm(user.uid);
         return StreamBuilder<AppUser?>(
           stream: _authService.userProfile(user.uid),
           builder: (context, profileSnap) {

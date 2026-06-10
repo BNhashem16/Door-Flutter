@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import './auth/app_lock.dart';
@@ -9,6 +10,7 @@ import './auth/auth_gate.dart';
 import './auth/auth_service.dart';
 import './connectivity/connectivity_gate.dart';
 import './gate/gate_widget_callback.dart';
+import './messaging/messaging_service.dart';
 import './l10n/app_strings.dart';
 import './l10n/locale_scope.dart';
 import './l10n/locale_store.dart';
@@ -36,6 +38,10 @@ void main() async {
     app: Firebase.app(),
     databaseURL: AuthService.databaseUrl,
   ).setPersistenceEnabled(true);
+  // FCM background/terminated handler. Registered before runApp so a push that
+  // arrives while the app is killed is handled. The OS renders the tray
+  // notification from the `notification` payload; the handler is a no-op.
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   // Route home-screen widget taps to the headless gate toggle callback.
   HomeWidget.registerInteractivityCallback(gateWidgetTapped);
   final locale = await LocaleStore.initial();
