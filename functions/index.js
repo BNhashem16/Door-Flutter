@@ -67,7 +67,7 @@ function verifRef(uid) {
   return admin.database().ref(`/email_verifications/${uid}`);
 }
 
-async function sendBrevoEmail({ apiKey, toEmail, subject, html }) {
+async function sendBrevoEmail({ apiKey, toEmail, subject, html, text }) {
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -77,9 +77,15 @@ async function sendBrevoEmail({ apiKey, toEmail, subject, html }) {
     },
     body: JSON.stringify({
       sender: { email: config.senderEmail, name: config.senderName },
+      // Reply-To points at the verified sender so replies land somewhere real.
+      replyTo: { email: config.senderEmail, name: config.senderName },
       to: [{ email: toEmail }],
       subject,
       htmlContent: html,
+      // Multipart: a plain-text alternative lowers spam score vs HTML-only.
+      textContent: text,
+      // Brevo categorizes transactional mail; helps reputation tracking.
+      tags: ['otp'],
     }),
   });
 
@@ -121,13 +127,14 @@ const sendEmailOtp = onCall({ secrets: [BREVO_API_KEY] }, async (request) => {
   await ref.set(buildOtpRecord(code, now));
 
   const locale = request.data && request.data.locale === 'en' ? 'en' : 'ar';
-  const { subject, html } = otpEmail(locale, code);
+  const { subject, html, text } = otpEmail(locale, code);
 
   await sendBrevoEmail({
     apiKey: BREVO_API_KEY.value(),
     toEmail: email,
     subject,
     html,
+    text,
   });
 
   return { ok: true, cooldownSeconds: Math.round(config.resendCooldownMs / 1000) };
@@ -179,8 +186,9 @@ const verifyEmailOtp = onCall(async (request) => {
 // ---------------------------------------------------------------------------
 //
 // Fully removes a user: their Firebase Auth account (Admin SDK), their RTDB
-// profile (/app_users/{uid}), and any pending OTP record
-// (/email_verifications/{uid}). Only an admin (role === 'admin' in their own
+// profile (/app_users/{uid}), any pending OTP record
+// (/email_verifications/{uid}), and their gate access logs
+// (/gate_logs/{uid}). Only an admin (role === 'admin' in their own
 // profile) may call this. The client deleteUser() routes through here so the
 // Auth account is deleted too — a plain RTDB remove cannot touch Auth.
 
@@ -220,6 +228,7 @@ const deleteUser = onCall(async (request) => {
   await Promise.all([
     admin.database().ref(`/app_users/${targetUid}`).remove(),
     admin.database().ref(`/email_verifications/${targetUid}`).remove(),
+    admin.database().ref(`/gate_logs/${targetUid}`).remove(),
   ]);
 
   return { ok: true };

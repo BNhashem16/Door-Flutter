@@ -392,8 +392,9 @@ class AuthService {
   /// Admin: fully delete a user from every store.
   ///
   /// Routes through the `deleteUser` Cloud Function (Admin SDK), which removes
-  /// the Firebase Auth account, the RTDB profile (/app_users/{uid}) and any
-  /// pending OTP record (/email_verifications/{uid}) in one privileged call.
+  /// the Firebase Auth account, the RTDB profile (/app_users/{uid}), any
+  /// pending OTP record (/email_verifications/{uid}) and the user's gate
+  /// access logs (/gate_logs/{uid}) in one privileged call.
   /// A plain client RTDB remove cannot touch Auth, so the freed email can be
   /// reused for a fresh registration only when Auth is deleted too.
   ///

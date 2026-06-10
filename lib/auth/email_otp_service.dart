@@ -97,7 +97,9 @@ class EmailOtpService {
     required String locale,
   }) async {
     final isAr = locale == 'ar';
-    final subject = isAr ? 'رمز التحقق' : 'Verification code';
+    // Branded subject (a bare "Verification code" reads as phishing to spam
+    // filters and users).
+    final subject = isAr ? 'رمز التحقق — تحكم البوابة' : 'Gate Control verification code';
     try {
       final res = await http
           .post(
@@ -112,12 +114,19 @@ class EmailOtpService {
                 'name': BrevoConfig.senderName,
                 'email': BrevoConfig.senderEmail,
               },
+              // Reply-To at the verified sender so replies have a real home.
+              'replyTo': {
+                'name': BrevoConfig.senderName,
+                'email': BrevoConfig.senderEmail,
+              },
               'to': [
                 {'email': email},
               ],
               'subject': subject,
               'htmlContent': _buildHtml(code: code, isAr: isAr),
               'textContent': _buildText(code: code, isAr: isAr),
+              // Brevo transactional tag — reputation tracking, not spammy.
+              'tags': ['otp'],
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -128,28 +137,87 @@ class EmailOtpService {
     }
   }
 
+  /// Clean, professional, single-column email. Inline CSS only and table-based
+  /// layout for maximum email-client compatibility (Gmail, Outlook, Apple Mail).
   String _buildHtml({required String code, required bool isAr}) {
     final dir = isAr ? 'rtl' : 'ltr';
-    final intro =
-        isAr ? 'رمز التحقق الخاص بك هو:' : 'Your verification code is:';
-    final note = isAr
-        ? 'صالح لمدة 10 دقائق. إذا لم تطلب هذا الرمز، تجاهل هذه الرسالة.'
-        : 'Valid for 10 minutes. If you did not request this code, ignore this email.';
-    return '<div dir="$dir" style="font-family:sans-serif;text-align:center">'
-        '<p style="font-size:16px">$intro</p>'
-        '<p style="font-size:40px;font-weight:bold;letter-spacing:8px;'
-        'margin:16px 0">$code</p>'
-        '<p style="font-size:13px;color:#666">$note</p>'
-        '</div>';
+    final lang = isAr ? 'ar' : 'en';
+    final align = isAr ? 'right' : 'left';
+    final brand = isAr ? 'تحكم البوابة' : 'Gate Control';
+    final title = isAr ? 'رمز التحقق' : 'Verification code';
+    final intro = isAr
+        ? 'استخدم الرمز التالي لتأكيد بريدك الإلكتروني داخل التطبيق:'
+        : 'Use the code below to confirm your email address in the app:';
+    final expiry = isAr
+        ? 'ينتهي هذا الرمز خلال <strong style="color:#0f172a">10 دقائق</strong>.'
+        : 'This code expires in <strong style="color:#0f172a">10 minutes</strong>.';
+    final ignore = isAr
+        ? 'لم تطلب هذا الرمز؟ يمكنك تجاهل هذه الرسالة بأمان — لن يتغيّر أي شيء.'
+        : "Didn't request this code? You can safely ignore this email — nothing will change.";
+    final pre = isAr
+        ? 'رمز التحقق الخاص بك من $brand'
+        : 'Your $brand verification code';
+    // Spaced digits read clearly and are easy to copy.
+    final spaced = code.split('').join('&nbsp;&nbsp;');
+
+    return '<!DOCTYPE html><html lang="$lang" dir="$dir">'
+        '<head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light only"></head>'
+        '<body style="margin:0;padding:0;background:#eef2f6;">'
+        // hidden preheader (inbox preview text — avoids empty-preview spam signal)
+        '<div style="display:none;max-height:0;overflow:hidden;opacity:0;'
+        'mso-hide:all;font-size:1px;line-height:1px;color:#eef2f6;">$pre</div>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#eef2f6;padding:32px 12px;">'
+        '<tr><td align="center">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="max-width:480px;background:#ffffff;border:1px solid #e2e8f0;'
+        'border-radius:18px;overflow:hidden;'
+        'font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;">'
+        // header
+        '<tr><td style="background:#1d4ed8;padding:22px 24px;text-align:center;">'
+        '<span style="color:#ffffff;font-size:21px;font-weight:700;">'
+        '🔐&nbsp;&nbsp;$brand</span></td></tr>'
+        // body
+        '<tr><td style="padding:30px 28px 24px;color:#0f172a;'
+        'direction:$dir;text-align:$align;">'
+        '<p style="margin:0 0 6px;font-size:20px;font-weight:700;">$title</p>'
+        '<p style="margin:0 0 4px;font-size:15px;color:#64748b;line-height:1.8;">'
+        '$intro</p>'
+        // code block
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
+        '<tr><td align="center" style="padding:8px 0 4px;">'
+        '<div style="display:inline-block;padding:18px 32px;background:#f1f5f9;'
+        'border:1px solid #e2e8f0;border-radius:14px;direction:ltr;">'
+        '<span style="font-family:\'Courier New\',Consolas,monospace;'
+        'font-size:40px;font-weight:700;letter-spacing:4px;color:#1d4ed8;">'
+        '$spaced</span></div></td></tr></table>'
+        '<p style="margin:6px 0 0;font-size:14px;color:#64748b;line-height:1.8;'
+        'text-align:center;">$expiry</p>'
+        '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;">'
+        '<p style="margin:0;font-size:13px;color:#64748b;line-height:1.8;">'
+        '$ignore</p></td></tr>'
+        // footer
+        '<tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;'
+        'padding:16px 24px;text-align:center;">'
+        '<span style="font-size:12px;color:#64748b;">$brand</span></td></tr>'
+        '</table></td></tr></table></body></html>';
   }
 
   String _buildText({required String code, required bool isAr}) {
     if (isAr) {
-      return 'رمز التحقق الخاص بك هو: $code\n'
-          'صالح لمدة 10 دقائق. إذا لم تطلب هذا الرمز، تجاهل هذه الرسالة.';
+      return 'تحكم البوابة\n\n'
+          'رمز التحقق الخاص بك: $code\n\n'
+          'استخدم هذا الرمز لتأكيد بريدك الإلكتروني داخل التطبيق.\n'
+          'ينتهي الرمز خلال 10 دقائق.\n\n'
+          'إذا لم تطلب هذا الرمز، تجاهل هذه الرسالة بأمان.';
     }
-    return 'Your verification code is: $code\n'
-        'Valid for 10 minutes. If you did not request this code, ignore this email.';
+    return 'Gate Control\n\n'
+        'Your verification code: $code\n\n'
+        'Use this code to confirm your email address in the app.\n'
+        'The code expires in 10 minutes.\n\n'
+        "If you didn't request this code, you can safely ignore this email.";
   }
 
   Future<Map<String, dynamic>?> _read(String uid) async {

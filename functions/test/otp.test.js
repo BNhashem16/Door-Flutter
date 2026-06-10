@@ -85,21 +85,25 @@ describe('buildOtpRecord', () => {
 
 describe('otpEmail templates', () => {
   test('arabic template is RTL, branded, contains the code', () => {
-    const { subject, html } = otpEmail('ar', '0421');
+    const { subject, html, text } = otpEmail('ar', '0421');
     expect(subject).toContain('رمز');
     expect(html).toContain('dir="rtl"');
     expect(html).toContain('تحكم البوابة');
     expect(html).toContain('10 دقائق');
-    // each digit rendered in its own box
-    ['0', '4', '2', '1'].forEach((d) => expect(html).toContain(`>${d}</span>`));
+    // code rendered as spaced digits in a single block
+    expect(html).toContain('0&nbsp;&nbsp;4&nbsp;&nbsp;2&nbsp;&nbsp;1');
+    // multipart plain-text part carries the raw code
+    expect(text).toContain('0421');
   });
 
   test('english template is LTR, branded, contains the code', () => {
-    const { subject, html } = otpEmail('en', '5839');
+    const { subject, html, text } = otpEmail('en', '5839');
     expect(subject.toLowerCase()).toContain('verification');
     expect(html).toContain('dir="ltr"');
     expect(html).toContain('Gate Control');
     expect(html).toContain('10 minutes');
+    expect(html).toContain('5&nbsp;&nbsp;8&nbsp;&nbsp;3&nbsp;&nbsp;9');
+    expect(text).toContain('5839');
   });
 
   test('unknown locale falls back to arabic', () => {
