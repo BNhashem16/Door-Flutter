@@ -150,6 +150,14 @@ class _PassTile extends StatelessWidget {
         '${two(dt.hour)}:${two(dt.minute)}';
   }
 
+  /// Human line for a recurrence, e.g. «Mon · Thu · 08:00–12:00».
+  String _scheduleSummary(AppStrings s, GuestSchedule schedule) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    String hm(int m) => '${two(m ~/ 60)}:${two(m % 60)}';
+    final days = schedule.weekdays.map(s.weekdayShort).join(' · ');
+    return '$days · ${hm(schedule.startMinute)}–${hm(schedule.endMinute)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -189,10 +197,19 @@ class _PassTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      s.guestValidUntil(_formatExpiry(pass.expiresAt)),
+                      pass.recurring
+                          ? s.guestRepeatUntil(_formatExpiry(pass.expiresAt))
+                          : s.guestValidUntil(_formatExpiry(pass.expiresAt)),
                       style: theme.textTheme.labelMedium,
                       textDirection: TextDirection.ltr,
                     ),
+                    if (pass.schedule != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _scheduleSummary(s, pass.schedule!),
+                        style: theme.textTheme.labelSmall,
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(usesText, style: theme.textTheme.labelSmall),
                   ],
@@ -203,7 +220,7 @@ class _PassTile extends StatelessWidget {
                 tooltip: s.guestShare,
                 onPressed: onShare,
               ),
-              if (!pass.revoked && pass.valid)
+              if (pass.revocable)
                 IconButton(
                   icon: const Icon(Icons.block_rounded),
                   tooltip: s.guestRevoke,

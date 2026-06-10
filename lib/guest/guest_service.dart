@@ -51,8 +51,8 @@ class GuestService {
   static String redeemUrl({required String ownerUid, required String token}) =>
       '$_redeemBase?u=$ownerUid&c=$token';
 
-  /// Create a pass for [ownerUid]. [validFor] sets the window from now;
-  /// [maxUses] `0` ⇒ unlimited within the window. Returns the stored
+  /// Create a one-shot pass for [ownerUid]. [validFor] sets the window from
+  /// now; [maxUses] `0` ⇒ unlimited within the window. Returns the stored
   /// [GuestPass] (with its token) so the caller can show the share view.
   Future<GuestPass> createPass({
     required String ownerUid,
@@ -60,19 +60,71 @@ class GuestService {
     required String label,
     required Duration validFor,
     required int maxUses,
-  }) async {
+  }) {
     final now = DateTime.now().millisecondsSinceEpoch;
+    return _store(
+      ownerUid: ownerUid,
+      createdByName: createdByName,
+      label: label,
+      createdAt: now,
+      expiresAt: now + validFor.inMilliseconds,
+      maxUses: maxUses,
+      schedule: null,
+    );
+  }
+
+  /// Create a recurring (weekly) pass. The pass only opens the gate on the
+  /// scheduled weekdays inside the daily window, and stops repeating after
+  /// [repeatUntil] (stored as the pass `expiresAt`). [maxUses] `0` ⇒ unlimited.
+  Future<GuestPass> createRecurringPass({
+    required String ownerUid,
+    required String createdByName,
+    required String label,
+    required GuestSchedule schedule,
+    required DateTime repeatUntil,
+    required int maxUses,
+  }) {
+    // End-of-day so the last repeat day stays valid until midnight.
+    final end = DateTime(
+      repeatUntil.year,
+      repeatUntil.month,
+      repeatUntil.day,
+      23,
+      59,
+      59,
+    );
+    return _store(
+      ownerUid: ownerUid,
+      createdByName: createdByName,
+      label: label,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      expiresAt: end.millisecondsSinceEpoch,
+      maxUses: maxUses,
+      schedule: schedule,
+    );
+  }
+
+  Future<GuestPass> _store({
+    required String ownerUid,
+    required String createdByName,
+    required String label,
+    required int createdAt,
+    required int expiresAt,
+    required int maxUses,
+    required GuestSchedule? schedule,
+  }) async {
     final token = _generateToken();
     final pass = GuestPass(
       token: token,
       label: label.trim(),
       createdBy: ownerUid,
       createdByName: createdByName.trim(),
-      createdAt: now,
-      expiresAt: now + validFor.inMilliseconds,
+      createdAt: createdAt,
+      expiresAt: expiresAt,
       maxUses: maxUses,
       usedCount: 0,
       status: GuestPassStatus.active,
+      schedule: schedule,
     );
     await _ownerRef(ownerUid).child(token).set(pass.toMap());
     return pass;

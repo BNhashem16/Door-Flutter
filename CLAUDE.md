@@ -40,21 +40,36 @@ lib/
 │   ├── auth_gate.dart        # nested StreamBuilder routing: auth state → profile → status
 │   ├── device_session.dart   # stable per-install device id via shared_preferences
 │   ├── login_screen.dart · register_screen.dart · pending_screen.dart
-├── admin/admin_screen.dart   # admin: live user list, approve/reject
+├── admin/admin_screen.dart   # admin: live user list, approve/reject; appbar → analytics, support, logs
 ├── profile/                  # profile_screen.dart (live stream) · profile_edit_screen.dart
 ├── firebase/firebase_update_screen.dart  # gate control screen (main authed screen)
 ├── gate/gate_service.dart    # gate state read/toggle (SDK + REST); dedicated service exception
-├── guest/                    # guest passes: GuestPass · GuestService · screens (temporary visitor access)
+├── guest/                    # guest passes: GuestPass(+GuestSchedule) · GuestService · screens (one-shot + recurring)
+├── analytics/                # analytics_screen.dart — opens/day bar chart (fl_chart) derived from gate logs
+├── support/                  # report-an-issue: SupportTicket · SupportService · report sheet + admin inbox
+├── onboarding/               # first-launch Arabic walkthrough (OnboardingScreen + OnboardingStore flag)
 ├── logs/                     # gate_log.dart (GateLog/GateSource) · logs_screen.dart
 ├── theme/app_theme.dart      # AppTheme.light/dark + AppColors ThemeExtension, AppSpacing, AppRadius
 ├── widgets/                  # initials_avatar · status_badge · section_card (shared design system)
 └── toast/toast_service.dart  # fluttertoast wrapper
 ```
 
-**Service-layer exceptions:** widgets normally write through `AuthService`. Two dedicated
-service wrappers are allowed to talk to RTDB directly: `GateService` (gate node) and
-`GuestService` (`/guest_passes/{ownerUid}` — create/watch/revoke). Guest *redemption* and the
-`usedCount` bump run server-side in the `guestPass` Cloud Function (Admin SDK), never the client.
+**Service-layer exceptions:** widgets normally write through `AuthService`. Dedicated
+service wrappers may talk to RTDB directly: `GateService` (gate node), `GuestService`
+(`/guest_passes/{ownerUid}`), and `SupportService` (`/support_tickets/{ownerUid}`). Guest
+*redemption* and the `usedCount` bump run server-side in the **Cloudflare redeem Worker**
+(`cloudflare/guest-worker/`, service-account auth), never the client.
+
+**Recurring guest passes:** a pass with a non-null `GuestSchedule` (weekdays + daily
+window + `expiresAt` end date) only opens the gate inside its weekly window. The Worker
+enforces the window in Africa/Cairo local time (`scheduleOpenNow`); `GuestPass.openNow`
+mirrors it best-effort for the owner UI. Recurrence fields are only written when present,
+so the `guest_passes` `.validate` rule is unchanged. **Worker edits require a redeploy**
+(`wrangler deploy` in `cloudflare/guest-worker/`).
+
+**Gate-open biometric:** opt-in flag in `BiometricService` (`isGateLockEnabled`). When on,
+`firebase_update_screen` prompts a fingerprint before the OPEN action (never close, and
+skipped when no biometrics are enrolled so it can't lock the user out). Toggle in profile.
 
 ## Data model & Firebase
 

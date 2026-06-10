@@ -102,6 +102,46 @@ async function getAccessToken(env) {
   return _cachedToken.token;
 }
 
+// --- Recurring-schedule helpers (Africa/Cairo local time) --------------------
+// A recurring pass only opens on its scheduled weekdays inside the daily
+// window. The window check uses Cairo wall-clock so it matches what the
+// resident set in the app, independent of the visitor's device timezone.
+
+// Map en-US weekday short names → DateTime.weekday numbering (1=Mon … 7=Sun).
+const _WEEKDAY_NUM = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+
+function cairoNow(now) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Africa/Cairo',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(now));
+  let weekday = 1;
+  let hour = 0;
+  let minute = 0;
+  for (const p of parts) {
+    if (p.type === 'weekday') weekday = _WEEKDAY_NUM[p.value] || 1;
+    else if (p.type === 'hour') hour = parseInt(p.value, 10) % 24;
+    else if (p.type === 'minute') minute = parseInt(p.value, 10);
+  }
+  return { weekday, minutes: hour * 60 + minute };
+}
+
+function scheduleOpenNow(schedule, now) {
+  if (!schedule || typeof schedule !== 'object') return false;
+  const days = Array.isArray(schedule.weekdays)
+    ? schedule.weekdays
+    : Object.values(schedule.weekdays || {});
+  const start = schedule.startMinute || 0;
+  const end = schedule.endMinute || 0;
+  const { weekday, minutes } = cairoNow(now);
+  if (!days.includes(weekday)) return false;
+  if (start <= end) return minutes >= start && minutes <= end;
+  return minutes >= start || minutes <= end; // window wraps past midnight
+}
+
 // --- Pure validators (identical semantics to the Cloud Function) -------------
 function passIsValid(pass, now) {
   if (!pass || typeof pass !== 'object') return false;
@@ -110,6 +150,10 @@ function passIsValid(pass, now) {
   const maxUses = pass.maxUses || 0;
   const used = pass.usedCount || 0;
   if (maxUses > 0 && used >= maxUses) return false;
+  // Recurring pass: also require the weekly window to be open right now.
+  if (pass.recurring === true && !scheduleOpenNow(pass.schedule, now)) {
+    return false;
+  }
   return true;
 }
 
@@ -131,6 +175,9 @@ function guestInvalidReason(pass, now) {
     return 'expired';
   }
   if (usesLeft(pass) <= 0) return 'used_up';
+  if (pass.recurring === true && !scheduleOpenNow(pass.schedule, now)) {
+    return 'closed_now';
+  }
   return null;
 }
 
@@ -192,16 +239,50 @@ function guestPageShell({ title, accent, bodyHtml }) {
 </html>`;
 }
 
+// Arabic weekday names keyed by DateTime.weekday (1=Mon … 7=Sun).
+const _AR_WEEKDAYS = {
+  1: 'الإثنين',
+  2: 'الثلاثاء',
+  3: 'الأربعاء',
+  4: 'الخميس',
+  5: 'الجمعة',
+  6: 'السبت',
+  7: 'الأحد',
+};
+
+function formatSchedule(schedule) {
+  const days = (
+    Array.isArray(schedule.weekdays)
+      ? schedule.weekdays
+      : Object.values(schedule.weekdays || {})
+  )
+    .map((d) => _AR_WEEKDAYS[d] || '')
+    .filter(Boolean)
+    .join('، ');
+  const two = (n) => String(n).padStart(2, '0');
+  const hm = (m) => `${two(Math.floor(m / 60))}:${two(m % 60)}`;
+  return `${days} · ${hm(schedule.startMinute || 0)}–${hm(schedule.endMinute || 0)}`;
+}
+
 function renderGuestValid(u, c, pass) {
   const usesLine =
     (pass.maxUses || 0) > 0
       ? `<div class="meta">المتبقي <b>${usesLeft(pass)}</b> مرة</div>`
       : `<div class="meta">عدد مرات الفتح: <b>غير محدود</b></div>`;
+  const recurringLine =
+    pass.recurring === true && pass.schedule
+      ? `<div class="meta">المواعيد: <b>${escapeHtml(formatSchedule(pass.schedule))}</b></div>`
+      : '';
+  const validityLine =
+    pass.recurring === true
+      ? `<div class="meta">يتكرر حتى <b>${escapeHtml(formatGuestExpiry(pass.expiresAt))}</b></div>`
+      : `<div class="meta">صالح حتى <b>${escapeHtml(formatGuestExpiry(pass.expiresAt))}</b></div>`;
   const body = `
     <div class="badge">🔓</div>
     <h1>دعوة لفتح البوابة</h1>
     <div class="label">${escapeHtml(pass.label || 'زائر')}</div>
-    <div class="meta">صالح حتى <b>${escapeHtml(formatGuestExpiry(pass.expiresAt))}</b></div>
+    ${validityLine}
+    ${recurringLine}
     ${usesLine}
     <form method="POST">
       <input type="hidden" name="u" value="${escapeHtml(u)}">
@@ -218,6 +299,10 @@ function renderGuestInvalid(reason) {
     expired: ['انتهت صلاحية التصريح', 'انتهت مدة هذا التصريح.'],
     revoked: ['تم إلغاء التصريح', 'ألغى المُضيف هذا التصريح.'],
     used_up: ['تم استخدام التصريح', 'تم استخدام هذا التصريح بالكامل.'],
+    closed_now: [
+      'خارج وقت التصريح',
+      'هذا التصريح صالح في أيام وأوقات محددة فقط. حاول في الموعد المسموح.',
+    ],
     error: ['تعذّر فتح البوابة', 'حدث خطأ مؤقت. حاول مرة أخرى.'],
   };
   const [title, msg] = copy[reason] || copy.not_found;

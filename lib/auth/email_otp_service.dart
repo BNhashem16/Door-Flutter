@@ -99,7 +99,8 @@ class EmailOtpService {
     final isAr = locale == 'ar';
     // Branded subject (a bare "Verification code" reads as phishing to spam
     // filters and users).
-    final subject = isAr ? 'رمز التحقق — تحكم البوابة' : 'Gate Control verification code';
+    final subject =
+        isAr ? 'رمز التحقق — تحكم البوابة' : 'Gate Control verification code';
     try {
       final res = await http
           .post(

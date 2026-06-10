@@ -247,6 +247,70 @@ abstract class AppStrings {
   String get offlineBody;
   String get retry;
 
+  // Recurring guest passes
+  String get guestRecurringToggle;
+  String get guestRecurringHint;
+  String get guestWeekdaysLabel;
+  String get guestWeekdaysRequired;
+  String get guestWindowLabel;
+  String get guestWindowFrom;
+  String get guestWindowTo;
+  String get guestEndDateLabel;
+  String guestRepeatUntil(String when);
+
+  /// Short weekday name for `DateTime.weekday` (1 = Mon … 7 = Sun).
+  String weekdayShort(int weekday);
+
+  // Gate-open fingerprint guard
+  String get gateBiometricLabel;
+  String get gateBiometricSubtitle;
+  String get gateBiometricReason;
+  String get gateBiometricFailed;
+
+  // Analytics dashboard
+  String get analyticsTitle;
+  String get analyticsButton;
+  String get analyticsLast7;
+  String get analyticsLast30;
+  String get analyticsTotalOpens;
+  String get analyticsBusiestDay;
+  String get analyticsDailyAvg;
+  String get analyticsOpensPerDay;
+  String get analyticsBySource;
+  String get analyticsNoData;
+
+  // Support / report an issue
+  String get supportTitle;
+  String get supportInboxTooltip;
+  String get supportEmpty;
+  String get supportLoadError;
+  String get supportOpen;
+  String get supportResolved;
+  String get supportMarkResolved;
+  String get supportReopen;
+  String get reportIssueTitle;
+  String get reportIssueButton;
+  String get reportIssueHint;
+  String get reportIssueRequired;
+  String get reportIssueSend;
+  String get reportIssueSent;
+  String get reportIssueError;
+  String get reportCategoryLabel;
+  String get reportCategoryBug;
+  String get reportCategorySuggestion;
+  String get reportCategoryOther;
+
+  // Onboarding
+  String get onboardingSkip;
+  String get onboardingNext;
+  String get onboardingStart;
+  String get ob1Title;
+  String get ob1Body;
+  String get ob2Title;
+  String get ob2Body;
+  String get ob3Title;
+  String get ob3Body;
+
   // Dynamic messages
   String get unexpectedError;
   String connectionError(Object error);
@@ -683,6 +747,123 @@ class _Ar implements AppStrings {
         'weak-password' => 'كلمة المرور ضعيفة',
         _ => 'فشل إنشاء الحساب',
       };
+
+  @override
+  String get guestRecurringToggle => 'تصريح متكرر (أسبوعي)';
+  @override
+  String get guestRecurringHint => 'صالح في أيام وأوقات محددة كل أسبوع';
+  @override
+  String get guestWeekdaysLabel => 'أيام الأسبوع';
+  @override
+  String get guestWeekdaysRequired => 'اختر يومًا واحدًا على الأقل';
+  @override
+  String get guestWindowLabel => 'وقت الصلاحية';
+  @override
+  String get guestWindowFrom => 'من';
+  @override
+  String get guestWindowTo => 'إلى';
+  @override
+  String get guestEndDateLabel => 'يتكرر حتى تاريخ';
+  @override
+  String guestRepeatUntil(String when) => 'يتكرر حتى $when';
+  @override
+  String weekdayShort(int weekday) => const [
+        'إثنين',
+        'ثلاثاء',
+        'أربعاء',
+        'خميس',
+        'جمعة',
+        'سبت',
+        'أحد',
+      ][(weekday - 1).clamp(0, 6)];
+
+  @override
+  String get gateBiometricLabel => 'تأكيد بالبصمة قبل فتح البوابة';
+  @override
+  String get gateBiometricSubtitle => 'اطلب بصمتك في كل مرة تفتح فيها البوابة';
+  @override
+  String get gateBiometricReason => 'أكّد بصمتك لفتح البوابة';
+  @override
+  String get gateBiometricFailed => 'فشل التحقق بالبصمة';
+
+  @override
+  String get analyticsTitle => 'إحصاءات الوصول';
+  @override
+  String get analyticsButton => 'الإحصاءات';
+  @override
+  String get analyticsLast7 => 'آخر 7 أيام';
+  @override
+  String get analyticsLast30 => 'آخر 30 يوم';
+  @override
+  String get analyticsTotalOpens => 'إجمالي مرات الفتح';
+  @override
+  String get analyticsBusiestDay => 'أكثر يوم نشاطًا';
+  @override
+  String get analyticsDailyAvg => 'المتوسط اليومي';
+  @override
+  String get analyticsOpensPerDay => 'مرات الفتح يوميًا';
+  @override
+  String get analyticsBySource => 'حسب المصدر';
+  @override
+  String get analyticsNoData => 'لا توجد بيانات بعد';
+
+  @override
+  String get supportTitle => 'بلاغات المستخدمين';
+  @override
+  String get supportInboxTooltip => 'البلاغات';
+  @override
+  String get supportEmpty => 'لا توجد بلاغات';
+  @override
+  String get supportLoadError => 'تعذّر تحميل البلاغات';
+  @override
+  String get supportOpen => 'مفتوح';
+  @override
+  String get supportResolved => 'محلول';
+  @override
+  String get supportMarkResolved => 'تعليم كمحلول';
+  @override
+  String get supportReopen => 'إعادة فتح';
+  @override
+  String get reportIssueTitle => 'إبلاغ عن مشكلة';
+  @override
+  String get reportIssueButton => 'إبلاغ عن مشكلة';
+  @override
+  String get reportIssueHint => 'اشرح المشكلة أو اقترح تحسينًا…';
+  @override
+  String get reportIssueRequired => 'اكتب رسالتك';
+  @override
+  String get reportIssueSend => 'إرسال';
+  @override
+  String get reportIssueSent => 'تم إرسال بلاغك. شكرًا لك';
+  @override
+  String get reportIssueError => 'تعذّر إرسال البلاغ';
+  @override
+  String get reportCategoryLabel => 'النوع';
+  @override
+  String get reportCategoryBug => 'مشكلة';
+  @override
+  String get reportCategorySuggestion => 'اقتراح';
+  @override
+  String get reportCategoryOther => 'أخرى';
+
+  @override
+  String get onboardingSkip => 'تخطّي';
+  @override
+  String get onboardingNext => 'التالي';
+  @override
+  String get onboardingStart => 'ابدأ';
+  @override
+  String get ob1Title => 'تحكّم في بوابتك';
+  @override
+  String get ob1Body => 'افتح وأغلق البوابة بضغطة واحدة من أي مكان.';
+  @override
+  String get ob2Title => 'تصاريح الزوار';
+  @override
+  String get ob2Body => 'أنشئ رابطًا مؤقتًا ليدخل زائرك دون الحاجة لتطبيق.';
+  @override
+  String get ob3Title => 'أمان ببصمتك';
+  @override
+  String get ob3Body => 'اقفل التطبيق وافتح البوابة ببصمتك لمزيد من الأمان.';
 }
 
 class _En implements AppStrings {
@@ -1120,6 +1301,126 @@ class _En implements AppStrings {
         'weak-password' => 'Password is too weak',
         _ => 'Account creation failed',
       };
+
+  @override
+  String get guestRecurringToggle => 'Recurring (weekly)';
+  @override
+  String get guestRecurringHint => 'Valid on set days and times each week';
+  @override
+  String get guestWeekdaysLabel => 'Days of week';
+  @override
+  String get guestWeekdaysRequired => 'Pick at least one day';
+  @override
+  String get guestWindowLabel => 'Active hours';
+  @override
+  String get guestWindowFrom => 'From';
+  @override
+  String get guestWindowTo => 'To';
+  @override
+  String get guestEndDateLabel => 'Repeat until';
+  @override
+  String guestRepeatUntil(String when) => 'Repeats until $when';
+  @override
+  String weekdayShort(int weekday) => const [
+        'Mon',
+        'Tue',
+        'Wed',
+        'Thu',
+        'Fri',
+        'Sat',
+        'Sun',
+      ][(weekday - 1).clamp(0, 6)];
+
+  @override
+  String get gateBiometricLabel => 'Require fingerprint to open the gate';
+  @override
+  String get gateBiometricSubtitle =>
+      'Ask for your fingerprint each time you open the gate';
+  @override
+  String get gateBiometricReason => 'Confirm your fingerprint to open the gate';
+  @override
+  String get gateBiometricFailed => 'Fingerprint verification failed';
+
+  @override
+  String get analyticsTitle => 'Access analytics';
+  @override
+  String get analyticsButton => 'Analytics';
+  @override
+  String get analyticsLast7 => 'Last 7 days';
+  @override
+  String get analyticsLast30 => 'Last 30 days';
+  @override
+  String get analyticsTotalOpens => 'Total opens';
+  @override
+  String get analyticsBusiestDay => 'Busiest day';
+  @override
+  String get analyticsDailyAvg => 'Daily average';
+  @override
+  String get analyticsOpensPerDay => 'Opens per day';
+  @override
+  String get analyticsBySource => 'By source';
+  @override
+  String get analyticsNoData => 'No data yet';
+
+  @override
+  String get supportTitle => 'User reports';
+  @override
+  String get supportInboxTooltip => 'Reports';
+  @override
+  String get supportEmpty => 'No reports';
+  @override
+  String get supportLoadError => 'Failed to load reports';
+  @override
+  String get supportOpen => 'Open';
+  @override
+  String get supportResolved => 'Resolved';
+  @override
+  String get supportMarkResolved => 'Mark resolved';
+  @override
+  String get supportReopen => 'Reopen';
+  @override
+  String get reportIssueTitle => 'Report an issue';
+  @override
+  String get reportIssueButton => 'Report an issue';
+  @override
+  String get reportIssueHint => 'Describe the issue or suggest an improvement…';
+  @override
+  String get reportIssueRequired => 'Write your message';
+  @override
+  String get reportIssueSend => 'Send';
+  @override
+  String get reportIssueSent => 'Your report was sent. Thank you';
+  @override
+  String get reportIssueError => 'Could not send the report';
+  @override
+  String get reportCategoryLabel => 'Type';
+  @override
+  String get reportCategoryBug => 'Bug';
+  @override
+  String get reportCategorySuggestion => 'Suggestion';
+  @override
+  String get reportCategoryOther => 'Other';
+
+  @override
+  String get onboardingSkip => 'Skip';
+  @override
+  String get onboardingNext => 'Next';
+  @override
+  String get onboardingStart => 'Get started';
+  @override
+  String get ob1Title => 'Control your gate';
+  @override
+  String get ob1Body => 'Open and close the gate with one tap, from anywhere.';
+  @override
+  String get ob2Title => 'Guest passes';
+  @override
+  String get ob2Body =>
+      'Create a temporary link to let visitors in — no app needed.';
+  @override
+  String get ob3Title => 'Secured by fingerprint';
+  @override
+  String get ob3Body =>
+      'Lock the app and open the gate with your fingerprint for extra security.';
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

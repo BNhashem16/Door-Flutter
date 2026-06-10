@@ -56,11 +56,20 @@ class _CreateGuestPassSheetState extends State<CreateGuestPassSheet> {
   int _maxUses = 1;
   bool _submitting = false;
 
+  // Recurring (weekly) schedule.
+  bool _recurring = false;
+  final Set<int> _weekdays = {}; // DateTime.weekday: 1=Mon … 7=Sun
+  TimeOfDay _from = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _to = const TimeOfDay(hour: 12, minute: 0);
+  DateTime _repeatUntil = DateTime.now().add(const Duration(days: 30));
+
   @override
   void dispose() {
     _labelController.dispose();
     super.dispose();
   }
+
+  int _minutes(TimeOfDay t) => t.hour * 60 + t.minute;
 
   Duration _resolveDuration() {
     switch (_dur) {
@@ -80,15 +89,39 @@ class _CreateGuestPassSheetState extends State<CreateGuestPassSheet> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final s = AppStrings.of(context);
+    if (_recurring && _weekdays.isEmpty) {
+      final colors = Theme.of(context).extension<AppColors>()!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.guestWeekdaysRequired),
+          backgroundColor: colors.danger,
+        ),
+      );
+      return;
+    }
     setState(() => _submitting = true);
     try {
-      final pass = await widget.service.createPass(
-        ownerUid: widget.ownerUid,
-        createdByName: widget.createdByName,
-        label: _labelController.text,
-        validFor: _resolveDuration(),
-        maxUses: _maxUses,
-      );
+      final pass = _recurring
+          ? await widget.service.createRecurringPass(
+              ownerUid: widget.ownerUid,
+              createdByName: widget.createdByName,
+              label: _labelController.text,
+              schedule: GuestSchedule(
+                weekdays: _weekdays.toList()..sort(),
+                startMinute: _minutes(_from),
+                endMinute: _minutes(_to),
+              ),
+              repeatUntil: _repeatUntil,
+              maxUses: _maxUses,
+            )
+          : await widget.service.createPass(
+              ownerUid: widget.ownerUid,
+              createdByName: widget.createdByName,
+              label: _labelController.text,
+              validFor: _resolveDuration(),
+              maxUses: _maxUses,
+            );
       if (!mounted) return;
       Navigator.of(context).pop(pass);
     } catch (_) {
@@ -138,27 +171,32 @@ class _CreateGuestPassSheetState extends State<CreateGuestPassSheet> {
                     ? s.guestLabelRequired
                     : null,
               ),
+              const SizedBox(height: AppSpacing.md),
+              _recurringToggle(theme, s),
               const SizedBox(height: AppSpacing.lg),
-              _label(theme, s.guestDurationLabel),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  _choice(s.guestDur1h, _dur == _DurChoice.h1,
-                      () => setState(() => _dur = _DurChoice.h1)),
-                  _choice(s.guestDur3h, _dur == _DurChoice.h3,
-                      () => setState(() => _dur = _DurChoice.h3)),
-                  _choice(s.guestDurTonight, _dur == _DurChoice.tonight,
-                      () => setState(() => _dur = _DurChoice.tonight)),
-                  _choice(s.guestDurCustom, _dur == _DurChoice.custom,
-                      () => setState(() => _dur = _DurChoice.custom)),
+              if (!_recurring) ...[
+                _label(theme, s.guestDurationLabel),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    _choice(s.guestDur1h, _dur == _DurChoice.h1,
+                        () => setState(() => _dur = _DurChoice.h1)),
+                    _choice(s.guestDur3h, _dur == _DurChoice.h3,
+                        () => setState(() => _dur = _DurChoice.h3)),
+                    _choice(s.guestDurTonight, _dur == _DurChoice.tonight,
+                        () => setState(() => _dur = _DurChoice.tonight)),
+                    _choice(s.guestDurCustom, _dur == _DurChoice.custom,
+                        () => setState(() => _dur = _DurChoice.custom)),
+                  ],
+                ),
+                if (_dur == _DurChoice.custom) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _hoursStepper(theme, s),
                 ],
-              ),
-              if (_dur == _DurChoice.custom) ...[
-                const SizedBox(height: AppSpacing.md),
-                _hoursStepper(theme, s),
-              ],
+              ] else
+                _scheduleControls(theme, s),
               const SizedBox(height: AppSpacing.lg),
               _label(theme, s.guestMaxUsesLabel),
               const SizedBox(height: AppSpacing.sm),
@@ -206,6 +244,130 @@ class _CreateGuestPassSheetState extends State<CreateGuestPassSheet> {
         style:
             theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
       );
+
+  Widget _recurringToggle(ThemeData theme, AppStrings s) {
+    final colors = theme.extension<AppColors>()!;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.muted.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: SwitchListTile(
+        value: _recurring,
+        onChanged: (v) => setState(() => _recurring = v),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        secondary: const Icon(Icons.event_repeat_rounded),
+        title: Text(s.guestRecurringToggle),
+        subtitle: Text(s.guestRecurringHint),
+      ),
+    );
+  }
+
+  /// Weekday selector + daily time window + repeat-until date for a recurring
+  /// pass.
+  Widget _scheduleControls(ThemeData theme, AppStrings s) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(theme, s.guestWeekdaysLabel),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (var d = 1; d <= 7; d++)
+              _choice(
+                s.weekdayShort(d),
+                _weekdays.contains(d),
+                () => setState(() => _weekdays.contains(d)
+                    ? _weekdays.remove(d)
+                    : _weekdays.add(d)),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _label(theme, s.guestWindowLabel),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: _timeField(theme, s.guestWindowFrom, _from, (t) {
+                setState(() => _from = t);
+              }),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _timeField(theme, s.guestWindowTo, _to, (t) {
+                setState(() => _to = t);
+              }),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _label(theme, s.guestEndDateLabel),
+        const SizedBox(height: AppSpacing.sm),
+        _dateField(theme, s),
+      ],
+    );
+  }
+
+  Widget _timeField(
+    ThemeData theme,
+    String label,
+    TimeOfDay value,
+    ValueChanged<TimeOfDay> onPick,
+  ) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      onTap: () async {
+        final picked =
+            await showTimePicker(context: context, initialTime: value);
+        if (picked != null) onPick(picked);
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.schedule_rounded),
+        ),
+        child: Text(
+          '${two(value.hour)}:${two(value.minute)}',
+          textDirection: TextDirection.ltr,
+          style: theme.textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
+
+  Widget _dateField(ThemeData theme, AppStrings s) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final d = _repeatUntil;
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      onTap: () async {
+        final now = DateTime.now();
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: _repeatUntil,
+          firstDate: now,
+          lastDate: now.add(const Duration(days: 365)),
+        );
+        if (picked != null) setState(() => _repeatUntil = picked);
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: s.guestEndDateLabel,
+          prefixIcon: const Icon(Icons.event_rounded),
+        ),
+        child: Text(
+          '${d.year}/${two(d.month)}/${two(d.day)}',
+          textDirection: TextDirection.ltr,
+          style: theme.textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
 
   Widget _choice(String label, bool selected, VoidCallback onTap) {
     return ChoiceChip(

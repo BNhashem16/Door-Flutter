@@ -98,4 +98,94 @@ void main() {
       expect(build(maxUses: 1, usedCount: 9).usesLeft, 0);
     });
   });
+
+  group('GuestSchedule', () {
+    // Monday 2024-01-01 09:30 local — a fixed reference inside an 08:00–12:00
+    // window on weekday 1 (Monday).
+    final monday0930 = DateTime(2024, 1, 1, 9, 30);
+
+    test('open inside weekday + window', () {
+      const sch =
+          GuestSchedule(weekdays: [1], startMinute: 480, endMinute: 720);
+      expect(sch.isOpenAt(monday0930), isTrue);
+    });
+
+    test('closed when weekday not enabled', () {
+      const sch =
+          GuestSchedule(weekdays: [2, 3], startMinute: 480, endMinute: 720);
+      expect(sch.isOpenAt(monday0930), isFalse);
+    });
+
+    test('closed outside the daily window', () {
+      const sch =
+          GuestSchedule(weekdays: [1], startMinute: 600, endMinute: 720);
+      expect(sch.isOpenAt(monday0930), isFalse); // 09:30 < 10:00
+    });
+
+    test('window wrapping past midnight', () {
+      const sch =
+          GuestSchedule(weekdays: [1], startMinute: 1320, endMinute: 120);
+      expect(sch.isOpenAt(DateTime(2024, 1, 1, 23, 30)), isTrue); // 23:30
+      expect(sch.isOpenAt(DateTime(2024, 1, 1, 1, 0)), isTrue); // 01:00
+      expect(sch.isOpenAt(monday0930), isFalse); // 09:30 outside
+    });
+  });
+
+  group('recurring pass', () {
+    final future = DateTime.now().millisecondsSinceEpoch + 86400000;
+
+    GuestPass recurring({required bool openNow}) {
+      final now = DateTime.now();
+      final minutes = now.hour * 60 + now.minute;
+      // Build a window that either contains or excludes the current minute,
+      // on today's weekday, so `valid` flips on `openNow`.
+      final schedule = openNow
+          ? GuestSchedule(
+              weekdays: [now.weekday],
+              startMinute: (minutes - 30).clamp(0, 1439),
+              endMinute: (minutes + 30).clamp(0, 1439),
+            )
+          : GuestSchedule(
+              weekdays: [now.weekday == 7 ? 1 : now.weekday + 1],
+              startMinute: 0,
+              endMinute: 1,
+            );
+      return GuestPass(
+        token: 'rec23abcd4',
+        label: 'cleaner',
+        createdBy: 'owner1',
+        createdByName: 'محمد',
+        createdAt: now.millisecondsSinceEpoch,
+        expiresAt: future,
+        maxUses: 0,
+        usedCount: 0,
+        status: GuestPassStatus.active,
+        schedule: schedule,
+      );
+    }
+
+    test('schedule round-trips through toMap/fromMap', () {
+      final p = recurring(openNow: true);
+      final restored = GuestPass.fromMap(p.token, p.toMap());
+      expect(restored.recurring, isTrue);
+      expect(restored.schedule!.weekdays, p.schedule!.weekdays);
+      expect(restored.schedule!.startMinute, p.schedule!.startMinute);
+      expect(restored.schedule!.endMinute, p.schedule!.endMinute);
+    });
+
+    test('valid only while the window is open; revocable regardless', () {
+      final open = recurring(openNow: true);
+      final closed = recurring(openNow: false);
+      expect(open.valid, isTrue);
+      expect(closed.valid, isFalse); // window shut → not redeemable now
+      expect(closed.revocable, isTrue); // still owner-revocable
+    });
+
+    test('one-shot pass has no schedule and openNow is always true', () {
+      final p = build(expiresAt: future);
+      expect(p.recurring, isFalse);
+      expect(p.openNow, isTrue);
+      expect(p.toMap().containsKey('recurring'), isFalse);
+    });
+  });
 }

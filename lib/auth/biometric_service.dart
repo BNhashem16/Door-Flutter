@@ -19,6 +19,7 @@ class BiometricService {
   static const lockTimeout = Duration(seconds: 60);
 
   static const _kEnabled = 'biometric_enabled';
+  static const _kGateLock = 'biometric_gate_lock';
   static const _kBackgroundedAt = 'biometric_backgrounded_at';
   static const _kEmail = 'biometric_email';
   static const _kPassword = 'biometric_password';
@@ -33,6 +34,20 @@ class BiometricService {
   Future<void> setEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kEnabled, value);
+  }
+
+  // --- gate-open fingerprint gate (independent of the app lock) ---
+
+  /// Whether opening the gate requires a fingerprint scan each time. Off by
+  /// default; opt-in for high-security buildings.
+  Future<bool> isGateLockEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kGateLock) ?? false;
+  }
+
+  Future<void> setGateLockEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kGateLock, value);
   }
 
   // --- background timeout logic ---

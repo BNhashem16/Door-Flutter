@@ -14,6 +14,8 @@ import './messaging/messaging_service.dart';
 import './l10n/app_strings.dart';
 import './l10n/locale_scope.dart';
 import './l10n/locale_store.dart';
+import './onboarding/onboarding_screen.dart';
+import './onboarding/onboarding_store.dart';
 import './theme/app_theme.dart';
 import 'firebase_options.dart';
 
@@ -45,13 +47,19 @@ void main() async {
   // Route home-screen widget taps to the headless gate toggle callback.
   HomeWidget.registerInteractivityCallback(gateWidgetTapped);
   final locale = await LocaleStore.initial();
-  runApp(MyApp(initialLocale: locale));
+  final onboardingSeen = await OnboardingStore.seen();
+  runApp(MyApp(initialLocale: locale, onboardingSeen: onboardingSeen));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, required this.initialLocale});
+  const MyApp({
+    super.key,
+    required this.initialLocale,
+    required this.onboardingSeen,
+  });
 
   final Locale initialLocale;
+  final bool onboardingSeen;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -60,7 +68,13 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   bool _isDarkMode = false;
   late Locale _locale = widget.initialLocale;
+  late bool _onboardingDone = widget.onboardingSeen;
   final _authService = AuthService();
+
+  void _finishOnboarding() {
+    OnboardingStore.markSeen();
+    setState(() => _onboardingDone = true);
+  }
 
   void _toggleTheme() {
     setState(() {
@@ -100,14 +114,16 @@ class _MyAppState extends State<MyApp> {
         onToggle: _toggleLocale,
         child: ConnectivityGate(child: child!),
       ),
-      home: AppLock(
-        authService: _authService,
-        child: AuthGate(
-          onThemeToggle: _toggleTheme,
-          isDarkMode: _isDarkMode,
-          onLocaleToggle: _toggleLocale,
-        ),
-      ),
+      home: _onboardingDone
+          ? AppLock(
+              authService: _authService,
+              child: AuthGate(
+                onThemeToggle: _toggleTheme,
+                isDarkMode: _isDarkMode,
+                onLocaleToggle: _toggleLocale,
+              ),
+            )
+          : OnboardingScreen(onDone: _finishOnboarding),
     );
   }
 }

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../analytics/analytics_screen.dart';
 import '../auth/auth_service.dart';
 import '../l10n/app_strings.dart';
+import '../support/report_issue_sheet.dart';
 import '../theme/app_theme.dart';
+import '../toast/toast_service.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import '../logs/logs_screen.dart';
 import '../auth/biometric_toggle_tile.dart';
+import '../auth/gate_biometric_toggle_tile.dart';
 import '../auth/change_password_screen.dart';
 import 'profile_edit_screen.dart';
 
@@ -101,7 +105,13 @@ class _Body extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           SectionCard(
-            child: BiometricToggleTile(authService: authService),
+            child: Column(
+              children: [
+                BiometricToggleTile(authService: authService),
+                Divider(color: theme.dividerColor, height: 1),
+                const GateBiometricToggleTile(),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
@@ -150,8 +160,47 @@ class _Body extends StatelessWidget {
               label: Text(s.changePassword),
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AnalyticsScreen(
+                    authService: authService,
+                    scope: AnalyticsScope.own,
+                    uid: user.uid,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.insights_outlined),
+              label: Text(s.analyticsButton),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => _reportIssue(context),
+              icon: const Icon(Icons.report_problem_outlined),
+              label: Text(s.reportIssueButton),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _reportIssue(BuildContext context) async {
+    final s = AppStrings.of(context);
+    final sent = await ReportIssueSheet.show(
+      context,
+      uid: user.uid,
+      name: user.name,
+      email: user.email,
+    );
+    if (sent == true && context.mounted) {
+      showToast(context, s.reportIssueSent);
+    }
   }
 }

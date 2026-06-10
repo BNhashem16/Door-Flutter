@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../analytics/analytics_screen.dart';
 import '../auth/auth_service.dart';
 import '../l10n/app_strings.dart';
+import '../support/admin_support_screen.dart';
 import '../theme/app_theme.dart';
 import '../toast/toast_service.dart';
 import '../widgets/initials_avatar.dart';
@@ -23,6 +25,27 @@ class AdminScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(s.adminTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.insights_outlined),
+            tooltip: s.analyticsTitle,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AnalyticsScreen(
+                  authService: authService,
+                  scope: AnalyticsScope.all,
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.support_agent_outlined),
+            tooltip: s.supportInboxTooltip,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const AdminSupportScreen(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: s.allLogsTooltip,

@@ -3,6 +3,7 @@ import 'dart:async';
 
 import '../admin/admin_screen.dart';
 import '../auth/auth_service.dart';
+import '../auth/biometric_service.dart';
 import '../gate/gate_service.dart';
 import '../gate/gate_sound.dart';
 import '../guest/guest_passes_screen.dart';
@@ -52,6 +53,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
 
   final GateService _gate = GateService();
   final GateSound _sound = GateSound();
+  final BiometricService _bio = BiometricService();
   StreamSubscription<bool>? _stateSub;
   StreamSubscription<List<GateLog>>? _logsSub;
 
@@ -112,6 +114,24 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   }
 
   Future<void> _toggleGate() async {
+    final s = AppStrings.of(context);
+    final opening = !_gateStatus;
+
+    // Optional high-security gate: require a fingerprint before opening.
+    // Closing is never gated. Skipped when the device has no enrolled
+    // biometrics so the feature can never lock the user out of their gate.
+    if (opening &&
+        await _bio.isGateLockEnabled() &&
+        await _bio.canUseBiometrics()) {
+      final ok = await _bio.authenticate(s.gateBiometricReason);
+      if (!ok) {
+        if (!mounted) return;
+        _showErrorSnackBar(s.gateBiometricFailed);
+        return;
+      }
+    }
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
