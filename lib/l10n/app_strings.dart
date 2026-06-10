@@ -136,6 +136,17 @@ abstract class AppStrings {
   String get syncLabel;
   String get syncLive;
 
+  // Activity / last-open
+  String greeting(String name);
+  String get activityTitle;
+  String get lastOpenLabel;
+  String get opensTodayLabel;
+  String get neverOpened;
+  String get timeJustNow;
+  String timeMinutesAgo(int n);
+  String timeHoursAgo(int n);
+  String timeDaysAgo(int n);
+
   // Home-screen widget
   String get widgetLoginRequired;
 
@@ -185,6 +196,11 @@ abstract class AppStrings {
   String get statusRejected;
   String get statusPending;
   String get statusUnknown;
+
+  // Connectivity (offline blocker)
+  String get offlineTitle;
+  String get offlineBody;
+  String get retry;
 
   // Dynamic messages
   String get unexpectedError;
@@ -408,6 +424,25 @@ class _Ar implements AppStrings {
   String get syncLive => 'مباشرة (لحظية)';
 
   @override
+  String greeting(String name) => 'أهلاً، $name';
+  @override
+  String get activityTitle => 'النشاط';
+  @override
+  String get lastOpenLabel => 'آخر فتح للباب';
+  @override
+  String get opensTodayLabel => 'مرات الفتح اليوم';
+  @override
+  String get neverOpened => 'لا يوجد بعد';
+  @override
+  String get timeJustNow => 'الآن';
+  @override
+  String timeMinutesAgo(int n) => 'منذ $n دقيقة';
+  @override
+  String timeHoursAgo(int n) => 'منذ $n ساعة';
+  @override
+  String timeDaysAgo(int n) => 'منذ $n يوم';
+
+  @override
   String get widgetLoginRequired => 'سجّل الدخول أولاً';
 
   @override
@@ -488,6 +523,14 @@ class _Ar implements AppStrings {
   String get statusPending => 'قيد الانتظار';
   @override
   String get statusUnknown => 'غير معروف';
+
+  @override
+  String get offlineTitle => 'لا يوجد اتصال بالإنترنت';
+  @override
+  String get offlineBody =>
+      'تحقّق من اتصالك بالشبكة وحاول مرة أخرى. التطبيق متوقف حتى يعود الاتصال.';
+  @override
+  String get retry => 'إعادة المحاولة';
 
   @override
   String get unexpectedError => 'حدث خطأ غير متوقع';
@@ -729,6 +772,25 @@ class _En implements AppStrings {
   String get syncLive => 'Live (instant)';
 
   @override
+  String greeting(String name) => 'Hi, $name';
+  @override
+  String get activityTitle => 'Activity';
+  @override
+  String get lastOpenLabel => 'Last gate opening';
+  @override
+  String get opensTodayLabel => 'Opens today';
+  @override
+  String get neverOpened => 'None yet';
+  @override
+  String get timeJustNow => 'Just now';
+  @override
+  String timeMinutesAgo(int n) => '${n}m ago';
+  @override
+  String timeHoursAgo(int n) => '${n}h ago';
+  @override
+  String timeDaysAgo(int n) => '${n}d ago';
+
+  @override
   String get widgetLoginRequired => 'Sign in first';
 
   @override
@@ -811,6 +873,15 @@ class _En implements AppStrings {
   String get statusPending => 'Pending';
   @override
   String get statusUnknown => 'Unknown';
+
+  @override
+  String get offlineTitle => 'No internet connection';
+  @override
+  String get offlineBody =>
+      'Check your network connection and try again. The app is paused until '
+      "you're back online.";
+  @override
+  String get retry => 'Retry';
 
   @override
   String get unexpectedError => 'An unexpected error occurred';

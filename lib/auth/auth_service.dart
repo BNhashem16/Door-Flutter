@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -117,11 +116,8 @@ class AuthService {
     FirebaseAuth? auth,
     FirebaseDatabase? db,
     EmailOtpService? otp,
-    FirebaseFunctions? functions,
   })  : _auth = auth ?? FirebaseAuth.instance,
         _otp = otp ?? EmailOtpService(),
-        _functions =
-            functions ?? FirebaseFunctions.instanceFor(region: functionsRegion),
         _db = db ??
             FirebaseDatabase.instanceFor(
               app: Firebase.app(),
@@ -131,13 +127,9 @@ class AuthService {
   // Must match the project's Realtime Database instance.
   static const String databaseUrl = 'https://microiot.firebaseio.com';
 
-  // Must match `region` in functions/config.js.
-  static const String functionsRegion = 'us-central1';
-
   final FirebaseAuth _auth;
   final FirebaseDatabase _db;
   final EmailOtpService _otp;
-  final FirebaseFunctions _functions;
 
   User? get currentUser => _auth.currentUser;
 
@@ -389,20 +381,24 @@ class AuthService {
     });
   }
 
-  /// Admin: fully delete a user from every store.
+  /// Admin: remove a user's Realtime Database records.
   ///
-  /// Routes through the `deleteUser` Cloud Function (Admin SDK), which removes
-  /// the Firebase Auth account, the RTDB profile (/app_users/{uid}), any
-  /// pending OTP record (/email_verifications/{uid}) and the user's gate
-  /// access logs (/gate_logs/{uid}) in one privileged call.
-  /// A plain client RTDB remove cannot touch Auth, so the freed email can be
-  /// reused for a fresh registration only when Auth is deleted too.
+  /// Atomically deletes the RTDB profile (/app_users/{uid}) and the user's
+  /// gate access logs (/gate_logs/{uid}) in a single multi-location update.
+  /// The security rules permit this only when the caller is an admin.
   ///
-  /// Throws [FirebaseFunctionsException] on failure (e.g. `permission-denied`
-  /// if the caller is not an admin, `failed-precondition` for self-delete).
+  /// Note: this is a client-side delete and CANNOT remove the Firebase Auth
+  /// account (only the Admin SDK can). The Auth record is orphaned — the user
+  /// can no longer sign in (their profile is gone), but the email stays
+  /// reserved in Auth and cannot be reused for a fresh registration.
+  ///
+  /// Throws on failure (e.g. the rules reject the write if the caller is not
+  /// an admin).
   Future<void> deleteUser(String uid) async {
-    final callable = _functions.httpsCallable('deleteUser');
-    await callable.call<void>(<String, dynamic>{'uid': uid});
+    await _db.ref().update(<String, Object?>{
+      'app_users/$uid': null,
+      'gate_logs/$uid': null,
+    });
   }
 
   static String _roleRaw(UserRole role) =>

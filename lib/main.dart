@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import './auth/app_lock.dart';
 import './auth/auth_gate.dart';
 import './auth/auth_service.dart';
+import './connectivity/connectivity_gate.dart';
 import './gate/gate_widget_callback.dart';
 import './l10n/app_strings.dart';
 import './l10n/locale_scope.dart';
@@ -91,7 +92,7 @@ class _MyAppState extends State<MyApp> {
       builder: (context, child) => LocaleScope(
         locale: _locale,
         onToggle: _toggleLocale,
-        child: child!,
+        child: ConnectivityGate(child: child!),
       ),
       home: AppLock(
         authService: _authService,
