@@ -5,6 +5,7 @@ import '../admin/admin_screen.dart';
 import '../auth/auth_service.dart';
 import '../gate/gate_service.dart';
 import '../gate/gate_sound.dart';
+import '../guest/guest_passes_screen.dart';
 import '../l10n/app_strings.dart';
 import '../logs/gate_log.dart';
 import '../profile/profile_screen.dart';
@@ -349,6 +350,8 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               const SizedBox(height: AppSpacing.lg),
               _activityCard(theme, colorScheme, colors),
               const SizedBox(height: AppSpacing.md),
+              _guestPassEntry(theme, colorScheme),
+              const SizedBox(height: AppSpacing.md),
               _infoCard(theme, colorScheme),
             ],
           ),
@@ -619,6 +622,57 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${dt.year}/${two(dt.month)}/${two(dt.day)} '
         '${two(dt.hour)}:${two(dt.minute)}';
+  }
+
+  /// Tappable entry to the resident's guest-pass manager. Visible to every
+  /// approved user (only approved users reach this screen).
+  Widget _guestPassEntry(ThemeData theme, ColorScheme colorScheme) {
+    final s = AppStrings.of(context);
+    return SectionCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GuestPassesScreen(
+              authService: widget.authService,
+              userName: widget.userName,
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(Icons.qr_code_2_rounded,
+                    color: colorScheme.primary, size: 24),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(s.guestPassesTitle,
+                        style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(s.guestPassesSubtitle,
+                        style: theme.textTheme.labelMedium),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_left_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _infoCard(ThemeData theme, ColorScheme colorScheme) {

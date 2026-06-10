@@ -46,5 +46,20 @@ void main() {
       expect(log.toMap()['action'], 'close');
       expect(log.toMap()['source'], 'app');
     });
+
+    test('guest source round-trips (visitor gate opens)', () {
+      const log = GateLog(
+        id: 'g1',
+        uid: 'owner1',
+        name: 'أخويا',
+        action: GateAction.open,
+        source: GateSource.guest,
+        timestamp: 1700000000000,
+      );
+
+      expect(log.toMap()['source'], 'guest');
+      expect(GateLog.fromMap('g1', 'owner1', log.toMap()).source,
+          GateSource.guest);
+    });
   });
 }

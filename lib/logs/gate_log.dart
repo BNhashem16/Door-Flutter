@@ -9,8 +9,9 @@ library;
 /// What happened to the gate.
 enum GateAction { open, close }
 
-/// Where the action was triggered from.
-enum GateSource { app, widget }
+/// Where the action was triggered from. `guest` = a visitor redeeming a
+/// guest-pass link via the `guestPass` Cloud Function.
+enum GateSource { app, widget, guest }
 
 /// Immutable record of a single gate open/close action.
 class GateLog {
@@ -42,7 +43,11 @@ class GateLog {
       uid: uid,
       name: (map['name'] ?? '') as String,
       action: map['action'] == 'open' ? GateAction.open : GateAction.close,
-      source: map['source'] == 'widget' ? GateSource.widget : GateSource.app,
+      source: switch (map['source']) {
+        'widget' => GateSource.widget,
+        'guest' => GateSource.guest,
+        _ => GateSource.app,
+      },
       timestamp: (map['timestamp'] ?? 0) as int,
     );
   }
@@ -50,7 +55,11 @@ class GateLog {
   Map<String, Object?> toMap() => {
         'name': name,
         'action': action == GateAction.open ? 'open' : 'close',
-        'source': source == GateSource.widget ? 'widget' : 'app',
+        'source': switch (source) {
+          GateSource.widget => 'widget',
+          GateSource.guest => 'guest',
+          GateSource.app => 'app',
+        },
         'timestamp': timestamp,
       };
 }

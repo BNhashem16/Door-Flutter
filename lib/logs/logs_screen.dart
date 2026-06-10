@@ -101,9 +101,11 @@ class _LogTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  log.source == GateSource.widget
-                      ? s.logSourceWidget
-                      : s.logSourceApp,
+                  switch (log.source) {
+                    GateSource.widget => s.logSourceWidget,
+                    GateSource.guest => s.logSourceGuest,
+                    GateSource.app => s.logSourceApp,
+                  },
                   style: theme.textTheme.labelSmall,
                 ),
               ],

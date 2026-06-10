@@ -43,10 +43,18 @@ lib/
 ├── admin/admin_screen.dart   # admin: live user list, approve/reject
 ├── profile/                  # profile_screen.dart (live stream) · profile_edit_screen.dart
 ├── firebase/firebase_update_screen.dart  # gate control screen (main authed screen)
+├── gate/gate_service.dart    # gate state read/toggle (SDK + REST); dedicated service exception
+├── guest/                    # guest passes: GuestPass · GuestService · screens (temporary visitor access)
+├── logs/                     # gate_log.dart (GateLog/GateSource) · logs_screen.dart
 ├── theme/app_theme.dart      # AppTheme.light/dark + AppColors ThemeExtension, AppSpacing, AppRadius
 ├── widgets/                  # initials_avatar · status_badge · section_card (shared design system)
 └── toast/toast_service.dart  # fluttertoast wrapper
 ```
+
+**Service-layer exceptions:** widgets normally write through `AuthService`. Two dedicated
+service wrappers are allowed to talk to RTDB directly: `GateService` (gate node) and
+`GuestService` (`/guest_passes/{ownerUid}` — create/watch/revoke). Guest *redemption* and the
+`usedCount` bump run server-side in the `guestPass` Cloud Function (Admin SDK), never the client.
 
 ## Data model & Firebase
 

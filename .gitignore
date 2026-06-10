@@ -4,6 +4,10 @@
 !.env.example
 *.hprof
 
+# Cloudflare Worker — service-account key + local vars (credentials)
+cloudflare/**/service-account*.json
+cloudflare/**/.dev.vars
+
 # Miscellaneous
 *.class
 *.log

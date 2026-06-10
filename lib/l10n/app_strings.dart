@@ -158,8 +158,53 @@ abstract class AppStrings {
   String get logActionClose;
   String get logSourceApp;
   String get logSourceWidget;
+  String get logSourceGuest;
   String get myLogsButton;
   String get allLogsTooltip;
+
+  // Guest passes
+  String get guestPassesTitle;
+  String get guestPassesSubtitle;
+  String get guestPassesEmpty;
+  String get guestPassesEmptyHint;
+  String get guestPassLoadError;
+  String get newGuestPass;
+  String get guestStatusActive;
+  String get guestStatusExpired;
+  String get guestStatusRevoked;
+  String get guestStatusUsedUp;
+  String guestValidUntil(String when);
+  String get guestUsesUnlimited;
+  String guestUsesLeft(int n);
+  String get guestShare;
+  String get guestQr;
+  String get guestRevoke;
+  String get guestCopyLink;
+  String get guestLinkCopied;
+  String get guestRevokeTitle;
+  String guestRevokeConfirm(String label);
+  String get guestRevoked;
+  // Create sheet
+  String get guestLabelLabel;
+  String get guestLabelHint;
+  String get guestLabelRequired;
+  String get guestDurationLabel;
+  String get guestDur1h;
+  String get guestDur3h;
+  String get guestDurTonight;
+  String get guestDurCustom;
+  String guestHours(int n);
+  String get guestCustomHoursLabel;
+  String get guestMaxUsesLabel;
+  String get guestUsesOnce;
+  String get guestUsesFive;
+  String get guestUsesUnlimitedOption;
+  String get createGuestPass;
+  // Share view
+  String get guestShareTitle;
+  String get guestShareHint;
+  String guestShareMessage(String label, String url);
+  String get guestClose;
 
   // Profile
   String get profileTitle;
@@ -460,9 +505,94 @@ class _Ar implements AppStrings {
   @override
   String get logSourceWidget => 'من الأداة';
   @override
+  String get logSourceGuest => 'من زائر';
+  @override
   String get myLogsButton => 'سجل وصولي';
   @override
   String get allLogsTooltip => 'سجل وصول الجميع';
+
+  @override
+  String get guestPassesTitle => 'تصاريح الزوار';
+  @override
+  String get guestPassesSubtitle => 'افتح البوابة لزائر برابط مؤقت';
+  @override
+  String get guestPassesEmpty => 'لا توجد تصاريح بعد';
+  @override
+  String get guestPassesEmptyHint => 'أنشئ تصريحًا مؤقتًا لزائرك';
+  @override
+  String get guestPassLoadError => 'تعذّر تحميل التصاريح';
+  @override
+  String get newGuestPass => 'تصريح جديد';
+  @override
+  String get guestStatusActive => 'فعّال';
+  @override
+  String get guestStatusExpired => 'منتهٍ';
+  @override
+  String get guestStatusRevoked => 'ملغى';
+  @override
+  String get guestStatusUsedUp => 'مُستخدم';
+  @override
+  String guestValidUntil(String when) => 'صالح حتى $when';
+  @override
+  String get guestUsesUnlimited => 'فتح غير محدود';
+  @override
+  String guestUsesLeft(int n) => 'المتبقي $n مرة';
+  @override
+  String get guestShare => 'مشاركة';
+  @override
+  String get guestQr => 'رمز QR';
+  @override
+  String get guestRevoke => 'إلغاء التصريح';
+  @override
+  String get guestCopyLink => 'نسخ الرابط';
+  @override
+  String get guestLinkCopied => 'تم نسخ الرابط';
+  @override
+  String get guestRevokeTitle => 'إلغاء التصريح';
+  @override
+  String guestRevokeConfirm(String label) =>
+      'إلغاء تصريح «$label»؟ لن يعمل الرابط بعد ذلك.';
+  @override
+  String get guestRevoked => 'تم إلغاء التصريح';
+  @override
+  String get guestLabelLabel => 'اسم الزائر';
+  @override
+  String get guestLabelHint => 'مثال: أخويا، الدليفري';
+  @override
+  String get guestLabelRequired => 'أدخل اسم الزائر';
+  @override
+  String get guestDurationLabel => 'المدة';
+  @override
+  String get guestDur1h => 'ساعة';
+  @override
+  String get guestDur3h => '3 ساعات';
+  @override
+  String get guestDurTonight => 'حتى الليل';
+  @override
+  String get guestDurCustom => 'مخصص';
+  @override
+  String guestHours(int n) => '$n ساعة';
+  @override
+  String get guestCustomHoursLabel => 'عدد الساعات';
+  @override
+  String get guestMaxUsesLabel => 'عدد مرات الفتح';
+  @override
+  String get guestUsesOnce => 'مرة واحدة';
+  @override
+  String get guestUsesFive => '5 مرات';
+  @override
+  String get guestUsesUnlimitedOption => 'غير محدود';
+  @override
+  String get createGuestPass => 'إنشاء التصريح';
+  @override
+  String get guestShareTitle => 'شارك التصريح';
+  @override
+  String get guestShareHint => 'أرسل الرابط للزائر عبر واتساب أو الرسائل';
+  @override
+  String guestShareMessage(String label, String url) =>
+      'تصريح دخول مؤقت للبوابة ($label):\n$url';
+  @override
+  String get guestClose => 'إغلاق';
 
   @override
   String get profileTitle => 'الملف الشخصي';
@@ -808,9 +938,95 @@ class _En implements AppStrings {
   @override
   String get logSourceWidget => 'From widget';
   @override
+  String get logSourceGuest => 'From guest';
+  @override
   String get myLogsButton => 'My access log';
   @override
   String get allLogsTooltip => 'All access logs';
+
+  @override
+  String get guestPassesTitle => 'Guest passes';
+  @override
+  String get guestPassesSubtitle => 'Let a visitor in with a temporary link';
+  @override
+  String get guestPassesEmpty => 'No passes yet';
+  @override
+  String get guestPassesEmptyHint => 'Create a temporary pass for your visitor';
+  @override
+  String get guestPassLoadError => 'Failed to load passes';
+  @override
+  String get newGuestPass => 'New pass';
+  @override
+  String get guestStatusActive => 'Active';
+  @override
+  String get guestStatusExpired => 'Expired';
+  @override
+  String get guestStatusRevoked => 'Revoked';
+  @override
+  String get guestStatusUsedUp => 'Used up';
+  @override
+  String guestValidUntil(String when) => 'Valid until $when';
+  @override
+  String get guestUsesUnlimited => 'Unlimited opens';
+  @override
+  String guestUsesLeft(int n) => '$n left';
+  @override
+  String get guestShare => 'Share';
+  @override
+  String get guestQr => 'QR code';
+  @override
+  String get guestRevoke => 'Revoke';
+  @override
+  String get guestCopyLink => 'Copy link';
+  @override
+  String get guestLinkCopied => 'Link copied';
+  @override
+  String get guestRevokeTitle => 'Revoke pass';
+  @override
+  String guestRevokeConfirm(String label) =>
+      'Revoke the pass for "$label"? The link will stop working.';
+  @override
+  String get guestRevoked => 'Pass revoked';
+  @override
+  String get guestLabelLabel => 'Visitor name';
+  @override
+  String get guestLabelHint => 'e.g. brother, delivery';
+  @override
+  String get guestLabelRequired => "Enter the visitor's name";
+  @override
+  String get guestDurationLabel => 'Duration';
+  @override
+  String get guestDur1h => '1 hour';
+  @override
+  String get guestDur3h => '3 hours';
+  @override
+  String get guestDurTonight => 'Until tonight';
+  @override
+  String get guestDurCustom => 'Custom';
+  @override
+  String guestHours(int n) => '${n}h';
+  @override
+  String get guestCustomHoursLabel => 'Hours';
+  @override
+  String get guestMaxUsesLabel => 'Allowed opens';
+  @override
+  String get guestUsesOnce => 'Once';
+  @override
+  String get guestUsesFive => '5 times';
+  @override
+  String get guestUsesUnlimitedOption => 'Unlimited';
+  @override
+  String get createGuestPass => 'Create pass';
+  @override
+  String get guestShareTitle => 'Share pass';
+  @override
+  String get guestShareHint =>
+      'Send the link to your visitor via WhatsApp or SMS';
+  @override
+  String guestShareMessage(String label, String url) =>
+      'Temporary gate access ($label):\n$url';
+  @override
+  String get guestClose => 'Close';
 
   @override
   String get profileTitle => 'Profile';

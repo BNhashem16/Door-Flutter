@@ -28,6 +28,16 @@
           ".validate": "newData.hasChildren(['action', 'timestamp'])"
         }
       }
+    },
+    "guest_passes": {
+      ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        "$passId": {
+          ".validate": "newData.hasChildren(['token', 'createdBy', 'expiresAt', 'status'])"
+        }
+      }
     }
   }
 }

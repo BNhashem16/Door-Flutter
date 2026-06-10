@@ -19,4 +19,11 @@ module.exports = {
   codeTtlMs: 10 * 60 * 1000, // 10 minutes
   resendCooldownMs: 60 * 1000, // 60 seconds
   maxAttempts: 5,
+
+  // Gate device node + write shape. MUST mirror lib/gate/gate_service.dart
+  // (GateService._gatePath / setOpen). The guest-pass function writes state:ON
+  // here via the Admin SDK so a visitor never sees the device token.
+  gatePath: 'users/1BEy97EhEObAeP7U6s4CFM66IPr2/devices/D',
+  gateApiKey: 'D',
+  gateDeviceName: 'Door',
 };

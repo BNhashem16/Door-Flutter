@@ -12,7 +12,11 @@
 // rules). The client never reads or writes that node — see database.rules.json.
 
 const crypto = require('crypto');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const {
+  onCall,
+  onRequest,
+  HttpsError,
+} = require('firebase-functions/v2/https');
 const {
   onValueCreated,
   onValueUpdated,
@@ -356,12 +360,259 @@ const onUserStatusChanged = onValueUpdated(
   },
 );
 
+// ---------------------------------------------------------------------------
+// Guest pass — temporary visitor gate access (public web redemption)
+// ---------------------------------------------------------------------------
+//
+// A resident writes /guest_passes/{ownerUid}/{token} from the app. The visitor
+// opens the redeem link in any browser; this `onRequest` function renders a
+// themed Arabic page and, on submit, atomically bumps `usedCount` (transaction
+// → double-spend safe) and writes `state:ON` to the gate node via the Admin
+// SDK. The visitor is unauthenticated and never sees the gate device token.
+//
+// Self-contained: GET renders the page, POST processes the open. The pure
+// validators (`passIsValid` / `usesLeft` / `isValidGuestToken`) are exported
+// under `_internal` for jest, mirroring the OTP helpers.
+
+// Pure: is a pass currently redeemable? `now` is server epoch ms.
+function passIsValid(pass, now) {
+  if (!pass || typeof pass !== 'object') return false;
+  if (pass.status !== 'active') return false;
+  if (typeof pass.expiresAt !== 'number' || now > pass.expiresAt) return false;
+  const maxUses = pass.maxUses || 0;
+  const used = pass.usedCount || 0;
+  if (maxUses > 0 && used >= maxUses) return false;
+  return true;
+}
+
+// Pure: remaining opens. maxUses <= 0 ⇒ Infinity (unlimited within the window).
+function usesLeft(pass) {
+  const maxUses = (pass && pass.maxUses) || 0;
+  const used = (pass && pass.usedCount) || 0;
+  if (maxUses <= 0) return Infinity;
+  return Math.max(0, maxUses - used);
+}
+
+// Pure: token format gate (lowercase base32, 8–16 chars). Cheap pre-DB check
+// that also keeps the RTDB path segment safe.
+function isValidGuestToken(token) {
+  return typeof token === 'string' && /^[a-z2-7]{8,16}$/.test(token);
+}
+
+// Pure: stable reason code for an unredeemable pass (drives the page copy).
+function guestInvalidReason(pass, now) {
+  if (!pass || typeof pass !== 'object') return 'not_found';
+  if (pass.status === 'revoked') return 'revoked';
+  if (typeof pass.expiresAt !== 'number' || now > pass.expiresAt) {
+    return 'expired';
+  }
+  if (usesLeft(pass) <= 0) return 'used_up';
+  return null;
+}
+
+// Minimal HTML escape for any value interpolated into the page.
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Format an expiry epoch in the building's local time, Arabic numerals.
+function formatGuestExpiry(ms) {
+  try {
+    return new Intl.DateTimeFormat('ar-EG', {
+      timeZone: 'Africa/Cairo',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(ms));
+  } catch (_) {
+    return new Date(ms).toISOString();
+  }
+}
+
+// Themed, self-contained RTL page shell. `accent` is a 6-digit hex; alpha
+// variants use 8-digit hex (universally supported).
+function guestPageShell({ title, accent, bodyHtml }) {
+  return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex">
+<title>${escapeHtml(title)}</title>
+<style>
+  :root { --accent:${accent}; --soft:${accent}24; --line:${accent}8c; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center;
+    justify-content:center; padding:24px;
+    font-family:-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;
+    background:#0d1117; color:#e6edf3; }
+  .card { width:100%; max-width:420px; background:#161b22;
+    border:1px solid #2d333b; border-radius:20px; padding:32px 24px;
+    text-align:center; box-shadow:0 18px 50px rgba(0,0,0,.45); }
+  .badge { width:84px; height:84px; border-radius:50%; margin:0 auto 20px;
+    display:flex; align-items:center; justify-content:center; font-size:40px;
+    background:var(--soft); border:2px solid var(--line); }
+  h1 { font-size:22px; margin:0 0 6px; font-weight:700; }
+  .label { font-size:18px; font-weight:700; color:var(--accent); margin:4px 0 16px; }
+  .meta { font-size:14px; color:#8b949e; margin:6px 0; }
+  .meta b { color:#e6edf3; font-weight:600; }
+  form { margin-top:26px; }
+  button { width:100%; border:0; border-radius:16px; padding:18px; font-size:18px;
+    font-weight:700; color:#fff; background:var(--accent); cursor:pointer; }
+  button:active { transform:translateY(1px); }
+  .note { font-size:12px; color:#6b7280; margin-top:18px; line-height:1.6; }
+</style>
+</head>
+<body><div class="card">${bodyHtml}</div></body>
+</html>`;
+}
+
+const GUEST_ACCENT = '2563eb'; // app blue
+const GUEST_SUCCESS = '059669';
+const GUEST_DANGER = 'dc2626';
+
+function renderGuestValid(u, c, pass) {
+  const usesLine =
+    (pass.maxUses || 0) > 0
+      ? `<div class="meta">المتبقي <b>${usesLeft(pass)}</b> مرة</div>`
+      : `<div class="meta">عدد مرات الفتح: <b>غير محدود</b></div>`;
+  const body = `
+    <div class="badge">🔓</div>
+    <h1>دعوة لفتح البوابة</h1>
+    <div class="label">${escapeHtml(pass.label || 'زائر')}</div>
+    <div class="meta">صالح حتى <b>${escapeHtml(formatGuestExpiry(pass.expiresAt))}</b></div>
+    ${usesLine}
+    <form method="POST">
+      <input type="hidden" name="u" value="${escapeHtml(u)}">
+      <input type="hidden" name="c" value="${escapeHtml(c)}">
+      <button type="submit">افتح البوابة</button>
+    </form>
+    <div class="note">شارك هذا الرابط مع الأشخاص الموثوقين فقط.</div>`;
+  return guestPageShell({ title: 'فتح البوابة', accent: GUEST_ACCENT, bodyHtml: body });
+}
+
+function renderGuestInvalid(reason) {
+  const copy = {
+    not_found: ['تصريح غير موجود', 'هذا الرابط غير صحيح أو تم حذفه.'],
+    expired: ['انتهت صلاحية التصريح', 'انتهت مدة هذا التصريح.'],
+    revoked: ['تم إلغاء التصريح', 'ألغى المُضيف هذا التصريح.'],
+    used_up: ['تم استخدام التصريح', 'تم استخدام هذا التصريح بالكامل.'],
+    error: ['تعذّر فتح البوابة', 'حدث خطأ مؤقت. حاول مرة أخرى.'],
+  };
+  const [title, msg] = copy[reason] || copy.not_found;
+  const body = `
+    <div class="badge">⛔</div>
+    <h1>${title}</h1>
+    <div class="meta">${msg}</div>`;
+  return guestPageShell({ title, accent: GUEST_DANGER, bodyHtml: body });
+}
+
+function renderGuestSuccess() {
+  const body = `
+    <div class="badge">✅</div>
+    <h1>تم فتح البوابة</h1>
+    <div class="meta">تفضّل بالدخول.</div>`;
+  return guestPageShell({ title: 'تم الفتح', accent: GUEST_SUCCESS, bodyHtml: body });
+}
+
+const guestPass = onRequest({ region: config.region }, async (req, res) => {
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.set('Cache-Control', 'no-store');
+
+  const u = String((req.query.u ?? (req.body && req.body.u)) || '');
+  const c = String((req.query.c ?? (req.body && req.body.c)) || '');
+  if (!u || !isValidGuestToken(c)) {
+    res.status(400).send(renderGuestInvalid('not_found'));
+    return;
+  }
+
+  const passRef = admin.database().ref(`/guest_passes/${u}/${c}`);
+
+  // GET → render the page for the current pass state.
+  if (req.method !== 'POST') {
+    const snap = await passRef.get();
+    const pass = snap.val();
+    const now = Date.now();
+    if (!passIsValid(pass, now)) {
+      res
+        .status(pass ? 200 : 404)
+        .send(renderGuestInvalid(guestInvalidReason(pass, now) || 'not_found'));
+      return;
+    }
+    res.status(200).send(renderGuestValid(u, c, pass));
+    return;
+  }
+
+  // POST → atomic redeem. Seed the cache first so the transaction sees the
+  // server value on its first run (avoids the null-first abort footgun).
+  await passRef.get();
+  const result = await passRef.transaction((pass) => {
+    if (!passIsValid(pass, Date.now())) return undefined; // abort
+    pass.usedCount = (pass.usedCount || 0) + 1;
+    return pass;
+  });
+
+  if (!result.committed) {
+    const pass = (await passRef.get()).val();
+    res
+      .status(200)
+      .send(renderGuestInvalid(guestInvalidReason(pass, Date.now()) || 'expired'));
+    return;
+  }
+
+  const pass = result.snapshot.val();
+  const label = pass.label || '';
+  try {
+    await admin
+      .database()
+      .ref(`/${config.gatePath}`)
+      .update({
+        apikey: config.gateApiKey,
+        changedby: `ضيف: ${label}`.slice(0, 80),
+        state: 'ON',
+        name: config.gateDeviceName,
+        timestamp: admin.database.ServerValue.TIMESTAMP,
+        type: 'Motor',
+      });
+    await admin
+      .database()
+      .ref(`/gate_logs/${u}`)
+      .push()
+      .set({
+        name: label,
+        action: 'open',
+        source: 'guest',
+        timestamp: admin.database.ServerValue.TIMESTAMP,
+      });
+  } catch (err) {
+    console.error('guest gate open failed', u, err && err.message);
+    res.status(500).send(renderGuestInvalid('error'));
+    return;
+  }
+
+  res.status(200).send(renderGuestSuccess());
+});
+
 module.exports = {
   sendEmailOtp,
   verifyEmailOtp,
   deleteUser,
   onNewPendingUser,
   onUserStatusChanged,
-  // Exposed for unit tests (functions/test/otp.test.js).
-  _internal: { sha256Hex, timingSafeEqualHex, generateCode, buildOtpRecord },
+  guestPass,
+  // Exposed for unit tests (functions/test/otp.test.js, guest.test.js).
+  _internal: {
+    sha256Hex,
+    timingSafeEqualHex,
+    generateCode,
+    buildOtpRecord,
+    passIsValid,
+    usesLeft,
+    isValidGuestToken,
+    guestInvalidReason,
+  },
 };
