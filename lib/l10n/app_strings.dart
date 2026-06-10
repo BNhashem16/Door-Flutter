@@ -66,6 +66,22 @@ abstract class AppStrings {
   String otpCooldown(int seconds);
   String get verifyCodeButton;
 
+  // Forgot password (signed out) + change password (signed in)
+  String get forgotPassword;
+  String get forgotPasswordTitle;
+  String get forgotPasswordBody;
+  String get sendResetLinkButton;
+  String get resetLinkSent;
+  String get newPassword;
+  String get confirmPassword;
+  String get passwordsDoNotMatch;
+  String get changePassword;
+  String get changePasswordTitle;
+  String get currentPassword;
+  String get updatePasswordButton;
+  String get passwordChanged;
+  String changePasswordError(String code);
+
   // Pending / rejected
   String get pendingTitle;
   String get pendingBody;
@@ -253,6 +269,44 @@ class _Ar implements AppStrings {
   String otpCooldown(int seconds) => 'انتظر $seconds ث قبل إعادة الإرسال';
   @override
   String get verifyCodeButton => 'تأكيد الرمز';
+
+  @override
+  String get forgotPassword => 'نسيت كلمة المرور؟';
+  @override
+  String get forgotPasswordTitle => 'إعادة تعيين كلمة المرور';
+  @override
+  String get forgotPasswordBody =>
+      'أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور.';
+  @override
+  String get sendResetLinkButton => 'إرسال الرابط';
+  @override
+  String get resetLinkSent =>
+      'إذا كان هذا البريد مسجّلاً، فسيصلك رابط إعادة تعيين كلمة المرور.';
+  @override
+  String get newPassword => 'كلمة المرور الجديدة';
+  @override
+  String get confirmPassword => 'تأكيد كلمة المرور';
+  @override
+  String get passwordsDoNotMatch => 'كلمتا المرور غير متطابقتين';
+  @override
+  String get changePassword => 'تغيير كلمة المرور';
+  @override
+  String get changePasswordTitle => 'تغيير كلمة المرور';
+  @override
+  String get currentPassword => 'كلمة المرور الحالية';
+  @override
+  String get updatePasswordButton => 'تحديث كلمة المرور';
+  @override
+  String get passwordChanged => 'تم تغيير كلمة المرور بنجاح';
+  @override
+  String changePasswordError(String code) => switch (code) {
+        'wrong-password' ||
+        'invalid-credential' =>
+          'كلمة المرور الحالية غير صحيحة',
+        'weak-password' => 'كلمة المرور الجديدة ضعيفة',
+        'requires-recent-login' => 'يرجى تسجيل الدخول مجددًا ثم المحاولة',
+        _ => 'تعذّر تغيير كلمة المرور',
+      };
 
   @override
   String get pendingTitle => 'بانتظار الموافقة';
@@ -536,6 +590,44 @@ class _En implements AppStrings {
   String otpCooldown(int seconds) => 'Wait ${seconds}s before resending';
   @override
   String get verifyCodeButton => 'Verify code';
+
+  @override
+  String get forgotPassword => 'Forgot password?';
+  @override
+  String get forgotPasswordTitle => 'Reset password';
+  @override
+  String get forgotPasswordBody =>
+      "Enter your email and we'll send you a link to reset your password.";
+  @override
+  String get sendResetLinkButton => 'Send link';
+  @override
+  String get resetLinkSent =>
+      'If that email is registered, a password reset link is on its way.';
+  @override
+  String get newPassword => 'New password';
+  @override
+  String get confirmPassword => 'Confirm password';
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match';
+  @override
+  String get changePassword => 'Change password';
+  @override
+  String get changePasswordTitle => 'Change password';
+  @override
+  String get currentPassword => 'Current password';
+  @override
+  String get updatePasswordButton => 'Update password';
+  @override
+  String get passwordChanged => 'Password changed successfully';
+  @override
+  String changePasswordError(String code) => switch (code) {
+        'wrong-password' ||
+        'invalid-credential' =>
+          'Current password is incorrect',
+        'weak-password' => 'The new password is too weak',
+        'requires-recent-login' => 'Please sign in again, then try',
+        _ => 'Could not change the password',
+      };
 
   @override
   String get pendingTitle => 'Awaiting approval';

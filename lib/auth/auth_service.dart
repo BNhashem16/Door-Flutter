@@ -210,6 +210,21 @@ class AuthService {
     await _otp.clear(_regKey(email));
   }
 
+  /// Forgot-password (user is signed OUT): trigger Firebase's built-in
+  /// password-reset email to [email]. Firebase sends a secure reset link
+  /// (localized by [locale], `ar`|`en`) from its own authenticated mailer; the
+  /// user sets a new password from it. Free — no paid backend required.
+  ///
+  /// Throws [FirebaseAuthException]; callers should treat `user-not-found` as
+  /// success to avoid revealing which emails are registered.
+  Future<void> sendPasswordResetEmail({
+    required String email,
+    required String locale,
+  }) async {
+    await _auth.setLanguageCode(locale);
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
   Future<void> signIn({
     required String email,
     required String password,
@@ -239,6 +254,23 @@ class AuthService {
     final credential =
         EmailAuthProvider.credential(email: email, password: password);
     await user.reauthenticateWithCredential(credential);
+  }
+
+  /// Signed-in owner: change own password. Reauthenticates with
+  /// [currentPassword] (proves identity, satisfies Firebase's recent-login
+  /// requirement) then sets [newPassword]. Throws [FirebaseAuthException]
+  /// (`wrong-password`/`invalid-credential` on a bad current password,
+  /// `weak-password` on a short new one, `no-current-user` if signed out).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'no-current-user');
+    }
+    await reauthenticate(currentPassword);
+    await user.updatePassword(newPassword);
   }
 
   /// The id of the device currently bound to this install.

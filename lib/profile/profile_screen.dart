@@ -8,6 +8,7 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import '../logs/logs_screen.dart';
 import '../auth/biometric_toggle_tile.dart';
+import '../auth/change_password_screen.dart';
 import 'profile_edit_screen.dart';
 
 /// Read-only profile view with an entry point to edit.
@@ -133,6 +134,20 @@ class _Body extends StatelessWidget {
               ),
               icon: const Icon(Icons.history),
               label: Text(s.myLogsButton),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ChangePasswordScreen(authService: authService),
+                ),
+              ),
+              icon: const Icon(Icons.lock_reset),
+              label: Text(s.changePassword),
             ),
           ),
         ],

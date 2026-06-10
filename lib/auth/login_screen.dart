@@ -5,6 +5,7 @@ import '../l10n/app_strings.dart';
 import '../widgets/language_toggle_button.dart';
 import 'auth_service.dart';
 import 'biometric_service.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -174,7 +175,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
+                      TextButton(
+                        onPressed: _loading
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ForgotPasswordScreen(
+                                        authService: widget.authService),
+                                  ),
+                                ),
+                        child: Text(s.forgotPassword),
+                      ),
                       TextButton(
                         onPressed: _loading
                             ? null

@@ -12,7 +12,7 @@ module.exports = {
 
   // Brevo single verified sender. Set this to the exact email you verified
   // in Brevo (Senders & IP > Senders). Until verified, sends will fail.
-  senderEmail: 'REPLACE_WITH_VERIFIED_SENDER@gmail.com',
+  senderEmail: 'hashem.codes@gmail.com',
   senderName: 'Gate Control',
 
   // OTP policy (keep in sync with the design spec).
