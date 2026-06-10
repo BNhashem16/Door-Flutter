@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import '../admin/audit_log.dart';
 import '../logs/gate_log.dart';
 import 'device_session.dart';
 import 'email_otp_service.dart';
@@ -425,6 +426,61 @@ class AuthService {
     await _db.ref().update(<String, Object?>{
       'app_users/$uid': null,
       'gate_logs/$uid': null,
+    });
+  }
+
+  // --- Admin push outbox (/push_outbox/{id}) ---
+
+  /// Admin: enqueue a push notification for [targetUid]. The Cloudflare Worker
+  /// cron drains `/push_outbox` once a minute and sends it via FCM (the app's
+  /// receive stack already exists), so it reaches the user even if their app is
+  /// closed. [type] is one of `approved` | `rejected` | `ticket_resolved`; the
+  /// Worker owns the Arabic copy. Admin-only write per the security rules.
+  Future<void> enqueuePush({
+    required String type,
+    required String targetUid,
+  }) {
+    return _db.ref('push_outbox').push().set({
+      'type': type,
+      'targetUid': targetUid,
+      'createdAt': ServerValue.timestamp,
+    });
+  }
+
+  // --- Admin audit log (/audit_logs/{id}) ---
+
+  /// Admin: append an audit entry for an admin action. [action] is a stable key
+  /// (`approve`/`reject`/`make_admin`/`remove_admin`/`edit_user`/`delete_user`/
+  /// `resolve_ticket`); the UI localizes it. Names are denormalized so the entry
+  /// survives the target's deletion. No-op when signed out.
+  Future<void> recordAudit({
+    required String actorName,
+    required String action,
+    required String targetUid,
+    required String targetName,
+  }) {
+    final actorUid = _auth.currentUser?.uid;
+    if (actorUid == null) return Future<void>.value();
+    return _db.ref('audit_logs').push().set({
+      'actorUid': actorUid,
+      'actorName': actorName.trim(),
+      'action': action,
+      'targetUid': targetUid,
+      'targetName': targetName.trim(),
+      'timestamp': ServerValue.timestamp,
+    });
+  }
+
+  /// Admin: live stream of audit-log entries, newest first.
+  Stream<List<AuditLog>> watchAuditLogs() {
+    return _db.ref('audit_logs').onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <AuditLog>[];
+      return value.entries
+          .where((e) => e.value is Map)
+          .map((e) => AuditLog.fromMap(e.key as String, e.value as Map))
+          .toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     });
   }
 

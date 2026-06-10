@@ -279,6 +279,12 @@ abstract class AppStrings {
   String get analyticsBySource;
   String get analyticsNoData;
 
+  // Audit log (admin action history)
+  String get auditLogTooltip;
+  String get auditLogTitle;
+  String get auditLogEmpty;
+  String auditAction(String action);
+
   // Support / report an issue
   String get supportTitle;
   String get supportInboxTooltip;
@@ -807,6 +813,23 @@ class _Ar implements AppStrings {
   @override
   String get analyticsNoData => 'لا توجد بيانات بعد';
 
+  @override
+  String get auditLogTooltip => 'سجل الإجراءات';
+  @override
+  String get auditLogTitle => 'سجل إجراءات المسؤولين';
+  @override
+  String get auditLogEmpty => 'لا توجد إجراءات بعد';
+  @override
+  String auditAction(String action) => switch (action) {
+        'approve' => 'وافق على',
+        'reject' => 'رفض',
+        'make_admin' => 'عيّن كمسؤول',
+        'remove_admin' => 'أزال صلاحية المسؤول عن',
+        'edit_user' => 'عدّل بيانات',
+        'delete_user' => 'حذف',
+        'resolve_ticket' => 'حلّ بلاغًا من',
+        _ => action,
+      };
   @override
   String get supportTitle => 'بلاغات المستخدمين';
   @override
@@ -1362,6 +1385,23 @@ class _En implements AppStrings {
   @override
   String get analyticsNoData => 'No data yet';
 
+  @override
+  String get auditLogTooltip => 'Audit log';
+  @override
+  String get auditLogTitle => 'Admin action log';
+  @override
+  String get auditLogEmpty => 'No actions yet';
+  @override
+  String auditAction(String action) => switch (action) {
+        'approve' => 'approved',
+        'reject' => 'rejected',
+        'make_admin' => 'made admin',
+        'remove_admin' => 'removed admin from',
+        'edit_user' => 'edited',
+        'delete_user' => 'deleted',
+        'resolve_ticket' => 'resolved a report from',
+        _ => action,
+      };
   @override
   String get supportTitle => 'User reports';
   @override

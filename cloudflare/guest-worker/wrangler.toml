@@ -2,6 +2,11 @@ name = "door-gate"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
 
+# Cron drains /push_outbox once a minute → admin-enqueued approval / rejection /
+# ticket-resolved notifications reach users even when their app is closed.
+[triggers]
+crons = ["* * * * *"]
+
 # DB_SECRET is NOT set here — it is a secret, injected via:
 #   wrangler secret put DB_SECRET
 # (paste the Firebase RTDB legacy database secret when prompted)

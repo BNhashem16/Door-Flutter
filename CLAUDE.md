@@ -40,7 +40,8 @@ lib/
 │   ├── auth_gate.dart        # nested StreamBuilder routing: auth state → profile → status
 │   ├── device_session.dart   # stable per-install device id via shared_preferences
 │   ├── login_screen.dart · register_screen.dart · pending_screen.dart
-├── admin/admin_screen.dart   # admin: live user list, approve/reject; appbar → analytics, support, logs
+├── admin/                    # admin_screen (user list, approve/reject; appbar → analytics, support, audit, logs)
+│                             #   · admin_user_edit_screen · audit_log.dart (AuditLog) · audit_log_screen.dart
 ├── profile/                  # profile_screen.dart (live stream) · profile_edit_screen.dart
 ├── firebase/firebase_update_screen.dart  # gate control screen (main authed screen)
 ├── gate/gate_service.dart    # gate state read/toggle (SDK + REST); dedicated service exception
@@ -66,6 +67,26 @@ enforces the window in Africa/Cairo local time (`scheduleOpenNow`); `GuestPass.o
 mirrors it best-effort for the owner UI. Recurrence fields are only written when present,
 so the `guest_passes` `.validate` rule is unchanged. **Worker edits require a redeploy**
 (`wrangler deploy` in `cloudflare/guest-worker/`).
+
+**Push notifications (send side):** the app's FCM *receive* stack lives in
+`messaging/messaging_service.dart` (token saved to `/fcm_tokens/{uid}`, foreground banner,
+background handler). The *sender* is the **Cloudflare Worker**, not Cloud Functions:
+- **Admin-triggered** (approval / rejection / ticket-resolved): the admin client appends a
+  `/push_outbox/{id}` entry (`{type, targetUid, createdAt}`, admin-only rule) via
+  `AuthService.enqueuePush`. A Worker **cron** (`wrangler.toml` `[triggers] crontab`, every
+  minute) drains the outbox, sends FCM HTTP v1 (Worker owns the Arabic copy, keyed by `type`),
+  prunes dead tokens, and deletes the entry. Latency ≤ ~1 min by design — fine for non-urgent
+  notices; in-app approval still updates live via the `AuthGate` profile stream.
+- **Guest redemption** is inline: after a successful redeem the Worker pushes the host
+  (`/fcm_tokens/{ownerUid}`) "تم فتح بوابتك". Real-time, no outbox.
+The Worker needs the `firebase.messaging` OAuth scope (already in `SCOPE`). **Any Worker or
+rule change here needs both `wrangler deploy` AND `firebase deploy --only database`.**
+
+**Admin audit log:** every admin action (approve/reject/role/edit/delete/resolve-ticket) writes
+`/audit_logs/{id}` (`AuthService.recordAudit`, admin-only). Viewable in `audit_log_screen`
+(appbar in admin). Actor/target names are denormalized so entries survive user deletion. The
+admin's own name threads down as `adminName` from `firebase_update_screen` → `AdminScreen` →
+tiles / edit / support screens.
 
 **Gate-open biometric:** opt-in flag in `BiometricService` (`isGateLockEnabled`). When on,
 `firebase_update_screen` prompts a fingerprint before the OPEN action (never close, and

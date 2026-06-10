@@ -12,10 +12,14 @@ class AdminUserEditScreen extends StatefulWidget {
     super.key,
     required this.authService,
     required this.user,
+    this.adminName = '',
   });
 
   final AuthService authService;
   final AppUser user;
+
+  /// The signed-in admin's own name — stamped onto the audit-log entry.
+  final String adminName;
 
   @override
   State<AdminUserEditScreen> createState() => _AdminUserEditScreenState();
@@ -55,6 +59,21 @@ class _AdminUserEditScreenState extends State<AdminUserEditScreen> {
         role: _role,
         status: _status,
       );
+      await widget.authService.recordAudit(
+        actorName: widget.adminName,
+        action: 'edit_user',
+        targetUid: widget.user.uid,
+        targetName: _nameCtrl.text,
+      );
+      // If this edit flipped approval status, push the user so they learn even
+      // with their app closed (the quick approve/reject buttons do the same).
+      if (_status != widget.user.status &&
+          (_status == UserStatus.approved || _status == UserStatus.rejected)) {
+        await widget.authService.enqueuePush(
+          type: _status == UserStatus.approved ? 'approved' : 'rejected',
+          targetUid: widget.user.uid,
+        );
+      }
       if (!mounted) return;
       showToast(context, AppStrings.of(context).saveChangesSuccess);
       Navigator.of(context).pop();

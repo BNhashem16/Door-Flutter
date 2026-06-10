@@ -307,7 +307,10 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
               tooltip: s.adminTitle,
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => AdminScreen(authService: widget.authService),
+                  builder: (_) => AdminScreen(
+                    authService: widget.authService,
+                    adminName: widget.userName,
+                  ),
                 ),
               ),
             ),

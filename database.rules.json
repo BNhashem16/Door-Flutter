@@ -48,6 +48,20 @@
           ".validate": "newData.hasChildren(['message', 'createdAt', 'status'])"
         }
       }
+    },
+    "push_outbox": {
+      ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      "$pushId": {
+        ".validate": "newData.hasChildren(['type', 'targetUid', 'createdAt'])"
+      }
+    },
+    "audit_logs": {
+      ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      "$entryId": {
+        ".validate": "newData.hasChildren(['actorUid', 'action', 'timestamp'])"
+      }
     }
   }
 }

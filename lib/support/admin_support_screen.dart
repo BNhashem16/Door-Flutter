@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../auth/auth_service.dart';
 import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/initials_avatar.dart';
@@ -10,7 +11,16 @@ import 'support_ticket.dart';
 /// Admin inbox: live list of user-submitted support tickets with a
 /// resolve/reopen toggle.
 class AdminSupportScreen extends StatefulWidget {
-  const AdminSupportScreen({super.key});
+  const AdminSupportScreen({
+    super.key,
+    required this.authService,
+    this.adminName = '',
+  });
+
+  final AuthService authService;
+
+  /// The signed-in admin's own name — stamped onto audit-log entries.
+  final String adminName;
 
   @override
   State<AdminSupportScreen> createState() => _AdminSupportScreenState();
@@ -24,6 +34,20 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     final next = t.isOpen ? TicketStatus.resolved : TicketStatus.open;
     try {
       await _service.setStatus(t.uid, t.id, next);
+      // On resolve: record the action and push the reporter (best-effort) so
+      // they get closure even with their app closed. Reopen is silent.
+      if (next == TicketStatus.resolved) {
+        await widget.authService.recordAudit(
+          actorName: widget.adminName,
+          action: 'resolve_ticket',
+          targetUid: t.uid,
+          targetName: t.name,
+        );
+        await widget.authService.enqueuePush(
+          type: 'ticket_resolved',
+          targetUid: t.uid,
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       final colors = Theme.of(context).extension<AppColors>()!;

@@ -11,12 +11,20 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import '../logs/logs_screen.dart';
 import 'admin_user_edit_screen.dart';
+import 'audit_log_screen.dart';
 
 /// Admin view: list all users and approve/reject pending ones.
 class AdminScreen extends StatelessWidget {
-  const AdminScreen({super.key, required this.authService});
+  const AdminScreen({
+    super.key,
+    required this.authService,
+    this.adminName = '',
+  });
 
   final AuthService authService;
+
+  /// The signed-in admin's own name — stamped onto audit-log entries.
+  final String adminName;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +50,19 @@ class AdminScreen extends StatelessWidget {
             tooltip: s.supportInboxTooltip,
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const AdminSupportScreen(),
+                builder: (_) => AdminSupportScreen(
+                  authService: authService,
+                  adminName: adminName,
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.fact_check_outlined),
+            tooltip: s.auditLogTooltip,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AuditLogScreen(authService: authService),
               ),
             ),
           ),
@@ -77,8 +97,11 @@ class AdminScreen extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             itemCount: users.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) =>
-                _UserTile(authService: authService, user: users[i]),
+            itemBuilder: (context, i) => _UserTile(
+              authService: authService,
+              adminName: adminName,
+              user: users[i],
+            ),
           );
         },
       ),
@@ -87,10 +110,47 @@ class AdminScreen extends StatelessWidget {
 }
 
 class _UserTile extends StatelessWidget {
-  const _UserTile({required this.authService, required this.user});
+  const _UserTile({
+    required this.authService,
+    required this.adminName,
+    required this.user,
+  });
 
   final AuthService authService;
+  final String adminName;
   final AppUser user;
+
+  /// Flip approval status, record the audit entry, and enqueue a push so the
+  /// affected user is told even with their app closed.
+  Future<void> _setStatus(UserStatus status) async {
+    await authService.setStatus(user.uid, status);
+    final approved = status == UserStatus.approved;
+    await authService.recordAudit(
+      actorName: adminName,
+      action: approved ? 'approve' : 'reject',
+      targetUid: user.uid,
+      targetName: user.name,
+    );
+    await authService.enqueuePush(
+      type: approved ? 'approved' : 'rejected',
+      targetUid: user.uid,
+    );
+  }
+
+  /// Promote/demote and record the audit entry.
+  Future<void> _toggleRole() async {
+    final makeAdmin = !user.isAdmin;
+    await authService.setRole(
+      user.uid,
+      makeAdmin ? UserRole.admin : UserRole.user,
+    );
+    await authService.recordAudit(
+      actorName: adminName,
+      action: makeAdmin ? 'make_admin' : 'remove_admin',
+      targetUid: user.uid,
+      targetName: user.name,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,25 +198,20 @@ class _UserTile extends StatelessWidget {
               children: [
                 if (user.status != UserStatus.approved)
                   TextButton.icon(
-                    onPressed: () =>
-                        authService.setStatus(user.uid, UserStatus.approved),
+                    onPressed: () => _setStatus(UserStatus.approved),
                     icon: const Icon(Icons.check, color: Color(0xFF059669)),
                     label: Text(s.approve,
                         style: const TextStyle(color: Color(0xFF059669))),
                   ),
                 if (user.status != UserStatus.rejected)
                   TextButton.icon(
-                    onPressed: () =>
-                        authService.setStatus(user.uid, UserStatus.rejected),
+                    onPressed: () => _setStatus(UserStatus.rejected),
                     icon: const Icon(Icons.close, color: Color(0xFFDC2626)),
                     label: Text(s.reject,
                         style: const TextStyle(color: Color(0xFFDC2626))),
                   ),
                 TextButton.icon(
-                  onPressed: () => authService.setRole(
-                    user.uid,
-                    user.isAdmin ? UserRole.user : UserRole.admin,
-                  ),
+                  onPressed: _toggleRole,
                   icon: Icon(
                     user.isAdmin
                         ? Icons.remove_moderator_outlined
@@ -193,6 +248,7 @@ class _UserTile extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (_) => AdminUserEditScreen(
           authService: authService,
+          adminName: adminName,
           user: user,
         ),
       ),
@@ -223,6 +279,12 @@ class _UserTile extends StatelessWidget {
     if (confirmed != true) return;
     try {
       await authService.deleteUser(user.uid);
+      await authService.recordAudit(
+        actorName: adminName,
+        action: 'delete_user',
+        targetUid: user.uid,
+        targetName: user.name,
+      );
       if (!context.mounted) return;
       showToast(context, s.userDeleted);
     } on Exception {

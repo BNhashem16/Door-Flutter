@@ -23,8 +23,11 @@ const GATE_API_KEY = 'D';
 const GATE_DEVICE_NAME = 'Door';
 
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
+// `firebase.messaging` is required for the FCM HTTP v1 send endpoint used by
+// the push-notification paths (guest redeem alert + push_outbox cron drain).
 const SCOPE =
   'https://www.googleapis.com/auth/firebase.database ' +
+  'https://www.googleapis.com/auth/firebase.messaging ' +
   'https://www.googleapis.com/auth/userinfo.email';
 
 const GUEST_ACCENT = '2563eb'; // app blue
@@ -338,7 +341,7 @@ function htmlResponse(body, status) {
 }
 
 // Atomic bump via ETag compare-and-swap. Returns 'ok' | reason-string.
-async function redeem(u, c, token) {
+async function redeem(u, c, token, env) {
   const path = `guest_passes/${u}/${c}`;
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -395,13 +398,136 @@ async function redeem(u, c, token) {
       }),
     }).catch(() => {});
 
+    // Notify the host their pass was just redeemed (best-effort, non-blocking).
+    await pushToUser(
+      env,
+      token,
+      u,
+      'تم فتح بوابتك',
+      `${label || 'زائر'} فتح البوابة الآن.`,
+    );
+
     return 'ok';
   }
   return 'error';
 }
 
+// --- FCM push (HTTP v1, service-account authenticated) -----------------------
+// The same service-account access token (now scoped for firebase.messaging)
+// sends notifications. Device tokens live at /fcm_tokens/{uid}/{token}=true; a
+// stale token (UNREGISTERED) is pruned so the set self-heals.
+
+function _projectId(env) {
+  try {
+    return JSON.parse(env.SERVICE_ACCOUNT).project_id;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function fcmSendOne(env, accessToken, deviceToken, title, body) {
+  const projectId = _projectId(env);
+  if (!projectId) return { ok: false, prune: false };
+  const res = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          token: deviceToken,
+          notification: { title, body },
+          android: {
+            priority: 'high',
+            notification: { channel_id: 'door_default' },
+          },
+        },
+      }),
+    },
+  );
+  // 404/400 → the token is unregistered/invalid; signal the caller to prune it.
+  return { ok: res.ok, prune: res.status === 404 || res.status === 400 };
+}
+
+// Fan a notification out to every device token registered for [uid].
+// Best-effort: never throws (callers sit in the redeem hot path / cron).
+async function pushToUser(env, accessToken, uid, title, body) {
+  try {
+    const res = await dbFetch(`fcm_tokens/${uid}`, accessToken);
+    if (!res.ok) return;
+    const tokens = await res.json();
+    if (!tokens || typeof tokens !== 'object') return;
+    for (const deviceToken of Object.keys(tokens)) {
+      const { prune } = await fcmSendOne(
+        env,
+        accessToken,
+        deviceToken,
+        title,
+        body,
+      );
+      if (prune) {
+        await dbFetch(`fcm_tokens/${uid}/${deviceToken}`, accessToken, {
+          method: 'DELETE',
+        }).catch(() => {});
+      }
+    }
+  } catch (_) {
+    // best-effort
+  }
+}
+
+// Arabic copy for admin-enqueued pushes, keyed by outbox `type`.
+const _PUSH_COPY = {
+  approved: [
+    'تمت الموافقة على حسابك',
+    'يمكنك الآن التحكم في البوابة من التطبيق.',
+  ],
+  rejected: ['تم رفض طلب حسابك', 'تواصل مع إدارة المبنى لمزيد من التفاصيل.'],
+  ticket_resolved: [
+    'تم حل بلاغك',
+    'قام المسؤول بمعالجة المشكلة التي أبلغت عنها.',
+  ],
+};
+
+// Drain /push_outbox: each entry { type, targetUid } → one fan-out, then delete.
+// Entries are removed after a single attempt to avoid an unbounded retry storm.
+async function drainPushOutbox(env, accessToken) {
+  const res = await dbFetch('push_outbox', accessToken);
+  if (!res.ok) return;
+  const all = await res.json();
+  if (!all || typeof all !== 'object') return;
+  for (const [id, item] of Object.entries(all)) {
+    if (item && typeof item === 'object' && item.targetUid) {
+      const copy = _PUSH_COPY[item.type];
+      if (copy) {
+        await pushToUser(env, accessToken, item.targetUid, copy[0], copy[1]);
+      }
+    }
+    await dbFetch(`push_outbox/${id}`, accessToken, {
+      method: 'DELETE',
+    }).catch(() => {});
+  }
+}
+
 // --- Worker entry ------------------------------------------------------------
 export default {
+  // Cron (every minute, see wrangler.toml) drains the admin push outbox so an
+  // approval/rejection/ticket-resolved notification reaches a user even when
+  // their app is closed — the FCM receive stack already exists in the app.
+  async scheduled(event, env, ctx) {
+    if (!env.SERVICE_ACCOUNT) return;
+    let token;
+    try {
+      token = await getAccessToken(env);
+    } catch (_) {
+      return;
+    }
+    await drainPushOutbox(env, token);
+  },
+
   async fetch(request, env) {
     if (!env.SERVICE_ACCOUNT) return htmlResponse(renderGuestInvalid('error'), 500);
 
@@ -445,7 +571,7 @@ export default {
     }
 
     // POST → atomic redeem.
-    const result = await redeem(u, c, token);
+    const result = await redeem(u, c, token, env);
     if (result === 'ok') return htmlResponse(renderGuestSuccess(), 200);
     return htmlResponse(renderGuestInvalid(result), 200);
   },
