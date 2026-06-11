@@ -29,6 +29,63 @@ class AdminSupportScreen extends StatefulWidget {
 class _AdminSupportScreenState extends State<AdminSupportScreen> {
   final SupportService _service = SupportService();
 
+  /// Record the audit entry and push the reporter that their ticket is resolved.
+  Future<void> _notifyResolved(SupportTicket t) async {
+    await widget.authService.recordAudit(
+      actorName: widget.adminName,
+      action: 'resolve_ticket',
+      targetUid: t.uid,
+      targetName: t.name,
+    );
+    await widget.authService.enqueuePush(
+      type: 'ticket_resolved',
+      targetUid: t.uid,
+    );
+  }
+
+  /// Admin: write a reply (also resolves), then notify the reporter.
+  Future<void> _reply(SupportTicket t) async {
+    final s = AppStrings.of(context);
+    final ctrl = TextEditingController(text: t.reply);
+    final text = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.ticketReply),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 5,
+          decoration: InputDecoration(hintText: s.ticketReplyHint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(ctrl.text),
+            child: Text(s.ticketReplySend),
+          ),
+        ],
+      ),
+    );
+    if (text == null || text.trim().isEmpty) return;
+    try {
+      await _service.reply(t.uid, t.id, text);
+      await _notifyResolved(t);
+    } catch (_) {
+      if (!mounted) return;
+      final colors = Theme.of(context).extension<AppColors>()!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.saveChangesError),
+          backgroundColor: colors.danger,
+        ),
+      );
+    }
+  }
+
   Future<void> _toggle(SupportTicket t) async {
     final s = AppStrings.of(context);
     final next = t.isOpen ? TicketStatus.resolved : TicketStatus.open;
@@ -37,16 +94,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
       // On resolve: record the action and push the reporter (best-effort) so
       // they get closure even with their app closed. Reopen is silent.
       if (next == TicketStatus.resolved) {
-        await widget.authService.recordAudit(
-          actorName: widget.adminName,
-          action: 'resolve_ticket',
-          targetUid: t.uid,
-          targetName: t.name,
-        );
-        await widget.authService.enqueuePush(
-          type: 'ticket_resolved',
-          targetUid: t.uid,
-        );
+        await _notifyResolved(t);
       }
     } catch (_) {
       if (!mounted) return;
@@ -83,7 +131,10 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
             itemCount: tickets.length,
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (_, i) => _TicketTile(
-                ticket: tickets[i], onToggle: () => _toggle(tickets[i])),
+              ticket: tickets[i],
+              onToggle: () => _toggle(tickets[i]),
+              onReply: () => _reply(tickets[i]),
+            ),
           );
         },
       ),
@@ -92,10 +143,15 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
 }
 
 class _TicketTile extends StatelessWidget {
-  const _TicketTile({required this.ticket, required this.onToggle});
+  const _TicketTile({
+    required this.ticket,
+    required this.onToggle,
+    required this.onReply,
+  });
 
   final SupportTicket ticket;
   final VoidCallback onToggle;
+  final VoidCallback onReply;
 
   String _categoryLabel(AppStrings s) => switch (ticket.category) {
         TicketCategory.bug => s.reportCategoryBug,
@@ -155,6 +211,20 @@ class _TicketTile extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(ticket.message, style: theme.textTheme.bodyMedium),
+          if (ticket.hasReply) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: colors.success.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Text(
+                '${s.ticketAdminReply}: ${ticket.reply}',
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
@@ -164,6 +234,12 @@ class _TicketTile extends StatelessWidget {
                 style: theme.textTheme.labelSmall,
               ),
               const Spacer(),
+              TextButton.icon(
+                onPressed: onReply,
+                icon: const Icon(Icons.reply_rounded, size: 18),
+                label: Text(s.ticketReply),
+              ),
+              const SizedBox(width: AppSpacing.xs),
               TextButton.icon(
                 onPressed: onToggle,
                 icon: Icon(

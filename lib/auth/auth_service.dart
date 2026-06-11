@@ -447,6 +447,21 @@ class AuthService {
     });
   }
 
+  /// Admin: broadcast an announcement to every approved resident. The Worker
+  /// cron fans it out (FCM push + a stored `/notifications` entry per user).
+  /// Admin-authored copy, so [title]/[body] travel in the outbox entry.
+  Future<void> enqueueBroadcast({
+    required String title,
+    required String body,
+  }) {
+    return _db.ref('push_outbox').push().set({
+      'type': 'broadcast',
+      'title': title.trim(),
+      'body': body.trim(),
+      'createdAt': ServerValue.timestamp,
+    });
+  }
+
   // --- Admin audit log (/audit_logs/{id}) ---
 
   /// Admin: append an audit entry for an admin action. [action] is a stable key
@@ -482,6 +497,50 @@ class AuthService {
           .toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     });
+  }
+
+  /// Owner: permanently delete own account. Clears all RTDB records first
+  /// (while still authenticated, so the rules authorize each path) then deletes
+  /// the Firebase Auth user. Reauthenticates with [password] to satisfy
+  /// Firebase's recent-login requirement. Throws [FirebaseAuthException]
+  /// (`wrong-password`/`invalid-credential`, `no-current-user`).
+  Future<void> deleteOwnAccount(String password) async {
+    final user = _auth.currentUser;
+    final uid = user?.uid;
+    if (user == null || uid == null) {
+      throw FirebaseAuthException(code: 'no-current-user');
+    }
+    await reauthenticate(password);
+    await _db.ref().update(<String, Object?>{
+      'app_users/$uid': null,
+      'gate_logs/$uid': null,
+      'guest_passes/$uid': null,
+      'support_tickets/$uid': null,
+      'notifications/$uid': null,
+      'fcm_tokens/$uid': null,
+      'notification_prefs/$uid': null,
+    });
+    await user.delete();
+  }
+
+  // --- Notification preferences (/notification_prefs/{uid}) ---
+  // Owner-controlled per-type opt-out for NON-critical pushes (guest redeem,
+  // announcements, doorbell ring). Approval/rejection/ticket-resolved always
+  // send. The Worker reads this node before pushing each notification.
+
+  /// Live notification preferences for [uid] as a `{type: enabled}` map. A
+  /// missing entry means enabled (opt-out model).
+  Stream<Map<String, bool>> watchNotificationPrefs(String uid) {
+    return _db.ref('notification_prefs/$uid').onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <String, bool>{};
+      return value.map((k, v) => MapEntry(k.toString(), v == true));
+    });
+  }
+
+  /// Owner: set whether [type] notifications are enabled.
+  Future<void> setNotificationPref(String uid, String type, bool enabled) {
+    return _db.ref('notification_prefs/$uid').update({type: enabled});
   }
 
   static String _roleRaw(UserRole role) =>

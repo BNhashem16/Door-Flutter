@@ -11,6 +11,7 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import '../logs/logs_screen.dart';
 import 'admin_user_edit_screen.dart';
+import 'announcement_compose_sheet.dart';
 import 'audit_log_screen.dart';
 
 /// Admin view: list all users and approve/reject pending ones.
@@ -33,6 +34,12 @@ class AdminScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(s.adminTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.campaign_outlined),
+            tooltip: s.announcementTitle,
+            onPressed: () =>
+                AnnouncementComposeSheet.show(context, authService),
+          ),
           IconButton(
             icon: const Icon(Icons.insights_outlined),
             tooltip: s.analyticsTitle,

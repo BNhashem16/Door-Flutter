@@ -285,6 +285,55 @@ abstract class AppStrings {
   String get auditLogEmpty;
   String auditAction(String action);
 
+  // Notification center
+  String get notificationsTitle;
+  String get notificationsEmpty;
+  String get notificationsMarkAllRead;
+  String get notificationsClear;
+  String get notificationsClearTitle;
+  String get notificationsClearConfirm;
+
+  // Announcements (admin broadcast)
+  String get announcementTitle;
+  String get announcementSubject;
+  String get announcementSubjectHint;
+  String get announcementBody;
+  String get announcementBodyHint;
+  String get announcementSend;
+  String get announcementSent;
+  String get announcementError;
+
+  // Doorbell (ring resident)
+  String get ringTitle;
+  String get ringBody;
+  String get ringOpen;
+  String get ringIgnore;
+
+  // Notification preferences
+  String get notifPrefsTitle;
+  String get notifPrefsButton;
+  String get notifPrefGuest;
+  String get notifPrefBroadcast;
+  String get notifPrefRing;
+
+  // My reports + ticket reply
+  String get myReportsTitle;
+  String get myReportsButton;
+  String get myReportsEmpty;
+  String get ticketReply;
+  String get ticketReplyHint;
+  String get ticketReplySend;
+  String get ticketAdminReply;
+
+  // Delete account (self-service)
+  String get deleteAccountButton;
+  String get deleteAccountTitle;
+  String get deleteAccountWarning;
+  String get deleteAccountPasswordHint;
+  String get deleteAccountConfirm;
+  String get deleteAccountError;
+  String get deleteAccountWrongPassword;
+
   // Support / report an issue
   String get supportTitle;
   String get supportInboxTooltip;
@@ -830,6 +879,81 @@ class _Ar implements AppStrings {
         'resolve_ticket' => 'حلّ بلاغًا من',
         _ => action,
       };
+  @override
+  String get notificationsTitle => 'الإشعارات';
+  @override
+  String get notificationsEmpty => 'لا توجد إشعارات';
+  @override
+  String get notificationsMarkAllRead => 'تحديد الكل كمقروء';
+  @override
+  String get notificationsClear => 'مسح الكل';
+  @override
+  String get notificationsClearTitle => 'مسح الإشعارات';
+  @override
+  String get notificationsClearConfirm => 'هل تريد حذف كل الإشعارات؟';
+  @override
+  String get announcementTitle => 'إعلان للسكان';
+  @override
+  String get announcementSubject => 'العنوان';
+  @override
+  String get announcementSubjectHint => 'اكتب عنوان الإعلان';
+  @override
+  String get announcementBody => 'نص الإعلان';
+  @override
+  String get announcementBodyHint => 'اكتب نص الإعلان';
+  @override
+  String get announcementSend => 'إرسال للجميع';
+  @override
+  String get announcementSent => 'تم إرسال الإعلان';
+  @override
+  String get announcementError => 'تعذّر إرسال الإعلان';
+  @override
+  String get ringTitle => 'طلب فتح الباب';
+  @override
+  String get ringBody => 'يوجد زائر عند البوابة يطلب الدخول. هل تفتح؟';
+  @override
+  String get ringOpen => 'افتح';
+  @override
+  String get ringIgnore => 'تجاهل';
+  @override
+  String get notifPrefsTitle => 'إعدادات الإشعارات';
+  @override
+  String get notifPrefsButton => 'إعدادات الإشعارات';
+  @override
+  String get notifPrefGuest => 'إشعار استخدام تصريح ضيف';
+  @override
+  String get notifPrefBroadcast => 'إعلانات المبنى';
+  @override
+  String get notifPrefRing => 'طلبات فتح الباب';
+  @override
+  String get myReportsTitle => 'بلاغاتي';
+  @override
+  String get myReportsButton => 'بلاغاتي';
+  @override
+  String get myReportsEmpty => 'لم ترسل أي بلاغ بعد';
+  @override
+  String get ticketReply => 'رد';
+  @override
+  String get ticketReplyHint => 'اكتب ردك للمستخدم';
+  @override
+  String get ticketReplySend => 'إرسال الرد';
+  @override
+  String get ticketAdminReply => 'رد الإدارة';
+  @override
+  String get deleteAccountButton => 'حذف الحساب';
+  @override
+  String get deleteAccountTitle => 'حذف الحساب نهائيًا';
+  @override
+  String get deleteAccountWarning =>
+      'سيتم حذف حسابك وكل بياناتك نهائيًا ولا يمكن التراجع. أدخل كلمة المرور للتأكيد.';
+  @override
+  String get deleteAccountPasswordHint => 'كلمة المرور';
+  @override
+  String get deleteAccountConfirm => 'حذف';
+  @override
+  String get deleteAccountError => 'تعذّر حذف الحساب';
+  @override
+  String get deleteAccountWrongPassword => 'كلمة المرور غير صحيحة';
   @override
   String get supportTitle => 'بلاغات المستخدمين';
   @override
@@ -1402,6 +1526,81 @@ class _En implements AppStrings {
         'resolve_ticket' => 'resolved a report from',
         _ => action,
       };
+  @override
+  String get notificationsTitle => 'Notifications';
+  @override
+  String get notificationsEmpty => 'No notifications';
+  @override
+  String get notificationsMarkAllRead => 'Mark all read';
+  @override
+  String get notificationsClear => 'Clear all';
+  @override
+  String get notificationsClearTitle => 'Clear notifications';
+  @override
+  String get notificationsClearConfirm => 'Delete all notifications?';
+  @override
+  String get announcementTitle => 'Announcement';
+  @override
+  String get announcementSubject => 'Title';
+  @override
+  String get announcementSubjectHint => 'Enter the announcement title';
+  @override
+  String get announcementBody => 'Message';
+  @override
+  String get announcementBodyHint => 'Enter the announcement text';
+  @override
+  String get announcementSend => 'Send to all';
+  @override
+  String get announcementSent => 'Announcement sent';
+  @override
+  String get announcementError => 'Failed to send announcement';
+  @override
+  String get ringTitle => 'Door open request';
+  @override
+  String get ringBody => 'A visitor at the gate is requesting entry. Open?';
+  @override
+  String get ringOpen => 'Open';
+  @override
+  String get ringIgnore => 'Ignore';
+  @override
+  String get notifPrefsTitle => 'Notification settings';
+  @override
+  String get notifPrefsButton => 'Notification settings';
+  @override
+  String get notifPrefGuest => 'Guest pass used';
+  @override
+  String get notifPrefBroadcast => 'Building announcements';
+  @override
+  String get notifPrefRing => 'Door open requests';
+  @override
+  String get myReportsTitle => 'My reports';
+  @override
+  String get myReportsButton => 'My reports';
+  @override
+  String get myReportsEmpty => 'You have not sent any reports yet';
+  @override
+  String get ticketReply => 'Reply';
+  @override
+  String get ticketReplyHint => 'Write your reply to the user';
+  @override
+  String get ticketReplySend => 'Send reply';
+  @override
+  String get ticketAdminReply => 'Admin reply';
+  @override
+  String get deleteAccountButton => 'Delete account';
+  @override
+  String get deleteAccountTitle => 'Delete account permanently';
+  @override
+  String get deleteAccountWarning =>
+      'Your account and all data will be permanently deleted and cannot be recovered. Enter your password to confirm.';
+  @override
+  String get deleteAccountPasswordHint => 'Password';
+  @override
+  String get deleteAccountConfirm => 'Delete';
+  @override
+  String get deleteAccountError => 'Failed to delete account';
+  @override
+  String get deleteAccountWrongPassword => 'Incorrect password';
   @override
   String get supportTitle => 'User reports';
   @override

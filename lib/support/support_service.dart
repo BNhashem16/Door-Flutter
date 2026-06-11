@@ -54,6 +54,29 @@ class SupportService {
     });
   }
 
+  /// Admin: reply to a ticket and resolve it in one write. The reporter sees the
+  /// reply in their "my reports" view; the caller also pushes them.
+  Future<void> reply(String uid, String ticketId, String text) {
+    return _ownerRef(uid).child(ticketId).update({
+      'reply': text.trim(),
+      'status': 'resolved',
+    });
+  }
+
+  /// Resident: live stream of own tickets, newest first.
+  Stream<List<SupportTicket>> watchOwn(String uid) {
+    return _ownerRef(uid).onValue.map((event) {
+      final value = event.snapshot.value;
+      if (value is! Map) return <SupportTicket>[];
+      return value.entries
+          .where((e) => e.value is Map)
+          .map((e) =>
+              SupportTicket.fromMap(e.key as String, uid, e.value as Map))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    });
+  }
+
   /// Admin: live stream of every ticket across all users, newest first.
   Stream<List<SupportTicket>> watchAll() {
     return _db.ref('support_tickets').onValue.map((event) {

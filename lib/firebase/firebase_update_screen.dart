@@ -6,9 +6,11 @@ import '../auth/auth_service.dart';
 import '../auth/biometric_service.dart';
 import '../gate/gate_service.dart';
 import '../gate/gate_sound.dart';
+import '../gate/ring_service.dart';
 import '../guest/guest_passes_screen.dart';
 import '../l10n/app_strings.dart';
 import '../logs/gate_log.dart';
+import '../notifications/notification_bell.dart';
 import '../profile/profile_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/initials_avatar.dart';
@@ -54,20 +56,29 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   final GateService _gate = GateService();
   final GateSound _sound = GateSound();
   final BiometricService _bio = BiometricService();
+  final RingService _ring = RingService();
   StreamSubscription<bool>? _stateSub;
   StreamSubscription<List<GateLog>>? _logsSub;
+  StreamSubscription<RingRequest?>? _ringSub;
+
+  /// `createdAt` of the most recent ring we already surfaced — prevents an old
+  /// pending row from re-popping the dialog on every rebuild / app open.
+  int _ringHandledAt = 0;
+  bool _ringDialogOpen = false;
 
   @override
   void initState() {
     super.initState();
     _listenToGate();
     _listenToLogs();
+    _listenToRing();
   }
 
   @override
   void dispose() {
     _stateSub?.cancel();
     _logsSub?.cancel();
+    _ringSub?.cancel();
     _gate.dispose();
     _sound.dispose();
     super.dispose();
@@ -111,6 +122,69 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
             .length;
       });
     }, onError: (_) {/* non-fatal: activity card just stays empty */});
+  }
+
+  /// Listen for doorbell rings. A fresh, recent pending ring prompts the
+  /// resident to open the gate for the waiting visitor.
+  void _listenToRing() {
+    _ringSub = _ring.watch().listen((req) {
+      if (!mounted || req == null || !req.isPending) return;
+      final fresh = req.createdAt > _ringHandledAt;
+      final recent =
+          DateTime.now().millisecondsSinceEpoch - req.createdAt < 90000;
+      if (fresh && recent && !_ringDialogOpen) {
+        _ringHandledAt = req.createdAt;
+        _showRingDialog();
+      }
+    }, onError: (_) {/* non-fatal */});
+  }
+
+  Future<void> _showRingDialog() async {
+    _ringDialogOpen = true;
+    final s = AppStrings.of(context);
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.notifications_active_rounded),
+        title: Text(s.ringTitle),
+        content: Text(s.ringBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(s.ringIgnore),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(s.ringOpen),
+          ),
+        ],
+      ),
+    );
+    _ringDialogOpen = false;
+    if (open == true) await _approveRing();
+  }
+
+  /// Open the gate for a ringing visitor and mark the request handled.
+  Future<void> _approveRing() async {
+    try {
+      final newOpen = await _gate.setOpen(true);
+      final uid = widget.authService.currentUser?.uid;
+      if (uid != null) {
+        unawaited(widget.authService.logGateAction(
+          uid: uid,
+          name: widget.userName,
+          action: GateAction.open,
+          source: GateSource.app,
+        ));
+      }
+      unawaited(_sound.play(open: newOpen));
+      await _ring.markOpened();
+      if (!mounted) return;
+      _showGateSnack(open: true);
+    } catch (error) {
+      if (!mounted) return;
+      _showErrorSnackBar(AppStrings.of(context).connectionError(error));
+    }
   }
 
   Future<void> _toggleGate() async {
@@ -301,6 +375,8 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
           ),
         ),
         actions: [
+          if (widget.authService.currentUser?.uid != null)
+            NotificationBell(uid: widget.authService.currentUser!.uid),
           if (widget.isAdmin)
             IconButton(
               icon: const Icon(Icons.admin_panel_settings),

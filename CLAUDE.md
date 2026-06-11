@@ -47,7 +47,8 @@ lib/
 ├── gate/gate_service.dart    # gate state read/toggle (SDK + REST); dedicated service exception
 ├── guest/                    # guest passes: GuestPass(+GuestSchedule) · GuestService · screens (one-shot + recurring)
 ├── analytics/                # analytics_screen.dart — opens/day bar chart (fl_chart) derived from gate logs
-├── support/                  # report-an-issue: SupportTicket · SupportService · report sheet + admin inbox
+├── notifications/            # in-app center: AppNotification · NotificationService · screen · bell · prefs screen
+├── support/                  # report-an-issue: SupportTicket(+reply) · SupportService · report sheet · admin inbox · my_reports_screen
 ├── onboarding/               # first-launch Arabic walkthrough (OnboardingScreen + OnboardingStore flag)
 ├── logs/                     # gate_log.dart (GateLog/GateSource) · logs_screen.dart
 ├── theme/app_theme.dart      # AppTheme.light/dark + AppColors ThemeExtension, AppSpacing, AppRadius
@@ -81,6 +82,31 @@ background handler). The *sender* is the **Cloudflare Worker**, not Cloud Functi
   (`/fcm_tokens/{ownerUid}`) "تم فتح بوابتك". Real-time, no outbox.
 The Worker needs the `firebase.messaging` OAuth scope (already in `SCOPE`). **Any Worker or
 rule change here needs both `wrangler deploy` AND `firebase deploy --only database`.**
+
+**Notification center:** every push the Worker sends is ALSO persisted to
+`/notifications/{uid}/{id}` (`pushToUser` → `persistNotification`), so the app keeps history.
+`NotificationService` streams it; the `NotificationBell` (gate app-bar) shows the unread badge
+and opens `NotificationsScreen` (mark-read / clear). Owner read/write rule.
+
+**Announcements (broadcast):** admin composes in `AnnouncementComposeSheet` →
+`AuthService.enqueueBroadcast` writes a `{type:'broadcast', title, body}` outbox entry. The
+Worker cron fans it to every **approved** resident (`approvedUids`) — push + stored notification.
+
+**Doorbell ring:** a static QR at the gate points at the Worker `/ring` page. A visitor taps it
+→ Worker writes `/ring_request` (single node, throttled 30s) and pushes all approved residents.
+The gate screen streams `/ring_request`; a fresh pending ring prompts the resident to open
+(`RingService.markOpened` after `setOpen`). Approved-resident write rule.
+
+**Notification preferences:** `/notification_prefs/{uid}/{type}=bool` (owner-only). The Worker's
+`prefAllows` skips non-critical pushes (`guest`/`broadcast`/`ring`) the user disabled;
+`approved`/`rejected`/`ticket_resolved` always send. UI: `NotificationPrefsScreen` (profile).
+
+**Self-service account delete:** `AuthService.deleteOwnAccount(password)` reauthenticates, nulls
+all own RTDB nodes in one multi-path update, then deletes the Auth user. Needs the owner
+self-delete clause in the `/app_users/{uid}` write rule (`auth.uid===$uid && !newData.exists()`).
+
+**Two-way support:** admin replies via `SupportService.reply` (sets `reply` + resolves + push);
+the reporter reads it in `MyReportsScreen` (`watchOwn`).
 
 **Admin audit log:** every admin action (approve/reject/role/edit/delete/resolve-ticket) writes
 `/audit_logs/{id}` (`AuthService.recordAudit`, admin-only). Viewable in `audit_log_screen`

@@ -1,8 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../analytics/analytics_screen.dart';
 import '../auth/auth_service.dart';
 import '../l10n/app_strings.dart';
+import '../notifications/notification_prefs_screen.dart';
+import '../support/my_reports_screen.dart';
 import '../support/report_issue_sheet.dart';
 import '../theme/app_theme.dart';
 import '../toast/toast_service.dart';
@@ -186,9 +189,75 @@ class _Body extends StatelessWidget {
               label: Text(s.reportIssueButton),
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MyReportsScreen(uid: user.uid),
+                ),
+              ),
+              icon: const Icon(Icons.inbox_outlined),
+              label: Text(s.myReportsButton),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NotificationPrefsScreen(
+                    authService: authService,
+                    uid: user.uid,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.notifications_outlined),
+              label: Text(s.notifPrefsButton),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          TextButton.icon(
+            onPressed: () => _deleteAccount(context),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.extension<AppColors>()!.danger,
+            ),
+            icon: const Icon(Icons.delete_forever_outlined),
+            label: Text(s.deleteAccountButton),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final s = AppStrings.of(context);
+    final password = await showDialog<String>(
+      context: context,
+      builder: (_) => const _DeleteAccountDialog(),
+    );
+    if (password == null || password.isEmpty) return;
+    try {
+      await authService.deleteOwnAccount(password);
+      // Auth state goes null → AuthGate swaps to LoginScreen underneath; pop the
+      // pushed profile route so the login screen is shown.
+      if (context.mounted) {
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!context.mounted) return;
+      final wrong =
+          e.code == 'wrong-password' || e.code == 'invalid-credential';
+      showToast(
+        context,
+        wrong ? s.deleteAccountWrongPassword : s.deleteAccountError,
+      );
+    } on Exception {
+      if (!context.mounted) return;
+      showToast(context, s.deleteAccountError);
+    }
   }
 
   Future<void> _reportIssue(BuildContext context) async {
@@ -202,5 +271,65 @@ class _Body extends StatelessWidget {
     if (sent == true && context.mounted) {
       showToast(context, s.reportIssueSent);
     }
+  }
+}
+
+/// Confirm dialog for self-service account deletion. Requires the password to
+/// reauthenticate. Returns the entered password, or null on cancel.
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _ctrl = TextEditingController();
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final colors = Theme.of(context).extension<AppColors>()!;
+    return AlertDialog(
+      icon: Icon(Icons.delete_forever_outlined, color: colors.danger),
+      title: Text(s.deleteAccountTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(s.deleteAccountWarning),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _ctrl,
+            obscureText: _obscure,
+            decoration: InputDecoration(
+              labelText: s.deleteAccountPasswordHint,
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(s.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_ctrl.text),
+          style: TextButton.styleFrom(foregroundColor: colors.danger),
+          child: Text(s.deleteAccountConfirm),
+        ),
+      ],
+    );
   }
 }

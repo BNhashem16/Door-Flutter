@@ -405,6 +405,7 @@ async function redeem(u, c, token, env) {
       u,
       'تم فتح بوابتك',
       `${label || 'زائر'} فتح البوابة الآن.`,
+      'guest',
     );
 
     return 'ok';
@@ -452,10 +453,41 @@ async function fcmSendOne(env, accessToken, deviceToken, title, body) {
   return { ok: res.ok, prune: res.status === 404 || res.status === 400 };
 }
 
-// Fan a notification out to every device token registered for [uid].
-// Best-effort: never throws (callers sit in the redeem hot path / cron).
-async function pushToUser(env, accessToken, uid, title, body) {
+// Persist an in-app notification under /notifications/{uid} so the app's
+// notification center keeps a history even if the OS push is missed/dismissed.
+async function persistNotification(accessToken, uid, type, title, body) {
+  await dbFetch(`notifications/${uid}`, accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type,
+      title,
+      body,
+      createdAt: Date.now(),
+      read: false,
+    }),
+  }).catch(() => {});
+}
+
+// Critical notifications always send; everything else honors the user's
+// per-type opt-out at /notification_prefs/{uid}/{type} (missing/true = allowed).
+const _ALWAYS_SEND = new Set(['approved', 'rejected', 'ticket_resolved']);
+
+async function prefAllows(accessToken, uid, type) {
+  if (_ALWAYS_SEND.has(type)) return true;
+  const res = await dbFetch(`notification_prefs/${uid}/${type}`, accessToken);
+  if (!res.ok) return true;
+  const v = await res.json();
+  return v !== false;
+}
+
+// Notify [uid]: store the in-app record AND fan the FCM push out to every
+// device token. Best-effort: never throws (callers sit in the redeem hot path /
+// cron). A stale token (UNREGISTERED) is pruned so the set self-heals.
+async function pushToUser(env, accessToken, uid, title, body, type = 'info') {
   try {
+    if (!(await prefAllows(accessToken, uid, type))) return;
+    await persistNotification(accessToken, uid, type, title, body);
     const res = await dbFetch(`fcm_tokens/${uid}`, accessToken);
     if (!res.ok) return;
     const tokens = await res.json();
@@ -492,7 +524,21 @@ const _PUSH_COPY = {
   ],
 };
 
-// Drain /push_outbox: each entry { type, targetUid } → one fan-out, then delete.
+// All approved residents' uids — the broadcast audience. Service-account read
+// bypasses the admin-only rule on /app_users.
+async function approvedUids(accessToken) {
+  const res = await dbFetch('app_users', accessToken);
+  if (!res.ok) return [];
+  const users = await res.json();
+  if (!users || typeof users !== 'object') return [];
+  return Object.entries(users)
+    .filter(([, u]) => u && typeof u === 'object' && u.status === 'approved')
+    .map(([uid]) => uid);
+}
+
+// Drain /push_outbox, then delete each entry. Two shapes:
+//  - typed  { type, targetUid }     → Worker-owned Arabic copy → one recipient
+//  - broadcast { type:'broadcast', title, body } → admin copy → all residents
 // Entries are removed after a single attempt to avoid an unbounded retry storm.
 async function drainPushOutbox(env, accessToken) {
   const res = await dbFetch('push_outbox', accessToken);
@@ -500,15 +546,97 @@ async function drainPushOutbox(env, accessToken) {
   const all = await res.json();
   if (!all || typeof all !== 'object') return;
   for (const [id, item] of Object.entries(all)) {
-    if (item && typeof item === 'object' && item.targetUid) {
-      const copy = _PUSH_COPY[item.type];
-      if (copy) {
-        await pushToUser(env, accessToken, item.targetUid, copy[0], copy[1]);
+    try {
+      if (!item || typeof item !== 'object') continue;
+      if (item.type === 'broadcast' && item.title) {
+        const uids = await approvedUids(accessToken);
+        for (const uid of uids) {
+          await pushToUser(
+            env,
+            accessToken,
+            uid,
+            item.title,
+            item.body || '',
+            'broadcast',
+          );
+        }
+      } else if (item.targetUid) {
+        const copy = _PUSH_COPY[item.type];
+        if (copy) {
+          await pushToUser(
+            env,
+            accessToken,
+            item.targetUid,
+            copy[0],
+            copy[1],
+            item.type,
+          );
+        }
       }
+    } finally {
+      await dbFetch(`push_outbox/${id}`, accessToken, {
+        method: 'DELETE',
+      }).catch(() => {});
     }
-    await dbFetch(`push_outbox/${id}`, accessToken, {
-      method: 'DELETE',
-    }).catch(() => {});
+  }
+}
+
+// --- Doorbell (ring a resident) ----------------------------------------------
+// A static QR at the gate points at `/ring`. A visitor with no pass taps the
+// button; the Worker pushes every approved resident and records a single
+// `/ring_request` the app streams. A resident approves in-app (opens the gate +
+// marks the request `opened`). Throttled to one push per 30s to curb spam.
+function renderRingPage(sent) {
+  const body = sent
+    ? `
+    <div class="badge">🔔</div>
+    <h1>تم إرسال الطلب</h1>
+    <div class="meta">سيصلك رد من أحد سكان المبنى قريبًا.</div>`
+    : `
+    <div class="badge">🔔</div>
+    <h1>طلب فتح الباب</h1>
+    <div class="meta">اضغط لإرسال تنبيه إلى سكان المبنى لفتح الباب لك.</div>
+    <form method="POST">
+      <button type="submit">اطلب فتح الباب</button>
+    </form>
+    <div class="note">يصل طلبك إلى السكان المصرّح لهم فقط.</div>`;
+  return guestPageShell({
+    title: 'طلب فتح الباب',
+    accent: GUEST_ACCENT,
+    bodyHtml: body,
+  });
+}
+
+async function handleRing(env, accessToken) {
+  const now = Date.now();
+  // Throttle: if a pending ring younger than 30s exists, don't re-push/re-write.
+  const cur = await dbFetch('ring_request', accessToken);
+  if (cur.ok) {
+    const r = await cur.json();
+    if (
+      r &&
+      r.status === 'pending' &&
+      typeof r.createdAt === 'number' &&
+      now - r.createdAt < 30000
+    ) {
+      return;
+    }
+  }
+  await dbFetch('ring_request', accessToken, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'pending', createdAt: now }),
+  }).catch(() => {});
+  const uids = await approvedUids(accessToken);
+  for (const uid of uids) {
+    await pushToUser(
+      env,
+      accessToken,
+      uid,
+      'طلب فتح الباب 🔔',
+      'يوجد شخص عند البوابة يطلب الدخول.',
+      'ring',
+    );
   }
 }
 
@@ -532,6 +660,22 @@ export default {
     if (!env.SERVICE_ACCOUNT) return htmlResponse(renderGuestInvalid('error'), 500);
 
     const url = new URL(request.url);
+
+    // Doorbell: `/ring` — visitor requests that a resident open the gate.
+    if (url.pathname.endsWith('/ring')) {
+      let token;
+      try {
+        token = await getAccessToken(env);
+      } catch (_) {
+        return htmlResponse(renderGuestInvalid('error'), 500);
+      }
+      if (request.method === 'POST') {
+        await handleRing(env, token);
+        return htmlResponse(renderRingPage(true), 200);
+      }
+      return htmlResponse(renderRingPage(false), 200);
+    }
+
     let u = url.searchParams.get('u') || '';
     let c = url.searchParams.get('c') || '';
 

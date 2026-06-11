@@ -23,6 +23,7 @@ class SupportTicket {
     required this.message,
     required this.createdAt,
     required this.status,
+    this.reply = '',
   });
 
   /// RTDB push key.
@@ -45,7 +46,11 @@ class SupportTicket {
 
   final TicketStatus status;
 
+  /// Admin's reply to the reporter (empty when none yet).
+  final String reply;
+
   bool get isOpen => status == TicketStatus.open;
+  bool get hasReply => reply.trim().isNotEmpty;
 
   factory SupportTicket.fromMap(
     String id,
@@ -67,6 +72,7 @@ class SupportTicket {
       status: map['status'] == 'resolved'
           ? TicketStatus.resolved
           : TicketStatus.open,
+      reply: (map['reply'] ?? '') as String,
     );
   }
 
@@ -81,5 +87,6 @@ class SupportTicket {
         'message': message,
         'createdAt': createdAt,
         'status': status == TicketStatus.resolved ? 'resolved' : 'open',
+        'reply': reply,
       };
 }

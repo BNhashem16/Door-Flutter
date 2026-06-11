@@ -5,7 +5,7 @@
       ".indexOn": ["role"],
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
-        ".write": "auth != null && ((auth.uid === $uid && !data.exists() && newData.child('role').val() === 'user' && newData.child('status').val() === 'pending' && newData.child('emailVerified').val() === false) || (auth.uid === $uid && data.exists() && newData.child('role').val() === data.child('role').val() && newData.child('status').val() === data.child('status').val() && newData.child('email').val() === data.child('email').val() && newData.child('createdAt').val() === data.child('createdAt').val() && (newData.child('emailVerified').isBoolean() || !newData.child('emailVerified').exists())) || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && ((auth.uid === $uid && !data.exists() && newData.child('role').val() === 'user' && newData.child('status').val() === 'pending' && newData.child('emailVerified').val() === false) || (auth.uid === $uid && data.exists() && newData.child('role').val() === data.child('role').val() && newData.child('status').val() === data.child('status').val() && newData.child('email').val() === data.child('email').val() && newData.child('createdAt').val() === data.child('createdAt').val() && (newData.child('emailVerified').isBoolean() || !newData.child('emailVerified').exists())) || (auth.uid === $uid && !newData.exists()) || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
         ".validate": "newData.hasChildren(['email', 'name', 'role', 'status', 'createdAt'])"
       }
     },
@@ -53,7 +53,26 @@
       ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
       ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
       "$pushId": {
-        ".validate": "newData.hasChildren(['type', 'targetUid', 'createdAt'])"
+        ".validate": "newData.hasChildren(['type', 'createdAt'])"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        "$noteId": {
+          ".validate": "newData.hasChildren(['title', 'createdAt'])"
+        }
+      }
+    },
+    "ring_request": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('app_users').child(auth.uid).child('status').val() === 'approved'"
+    },
+    "notification_prefs": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
       }
     },
     "audit_logs": {
