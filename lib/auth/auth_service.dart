@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 
 import '../admin/audit_log.dart';
 import '../logs/gate_log.dart';
+import 'account_store.dart';
 import 'device_session.dart';
 import 'email_otp_service.dart';
 import 'otp_result.dart';
@@ -124,8 +125,10 @@ class AuthService {
     FirebaseAuth? auth,
     FirebaseDatabase? db,
     EmailOtpService? otp,
+    AccountStore? accounts,
   })  : _auth = auth ?? FirebaseAuth.instance,
         _otp = otp ?? EmailOtpService(),
+        _accounts = accounts ?? const AccountStore(),
         _db = db ??
             FirebaseDatabase.instanceFor(
               app: Firebase.app(),
@@ -138,6 +141,10 @@ class AuthService {
   final FirebaseAuth _auth;
   final FirebaseDatabase _db;
   final EmailOtpService _otp;
+  final AccountStore _accounts;
+
+  /// Multi-account switcher store (saved logins on this device).
+  AccountStore get accounts => _accounts;
 
   User? get currentUser => _auth.currentUser;
 
@@ -212,6 +219,16 @@ class AuthService {
     );
     await _userRef(uid).set(profile.toMap());
     await _otp.clear(_regKey(email));
+    // createUser auto-signs-in, so remember this account for switching too.
+    try {
+      await _accounts.remember(
+        email: email.trim(),
+        password: password,
+        name: name.trim(),
+      );
+    } on Exception {
+      // Credential caching is a convenience; registration already succeeded.
+    }
     // Auto-approve means no admin gesture happens at signup, so alert the
     // admins to review the new account. The Worker cron fans this out to every
     // admin. Best-effort: a failed enqueue must never fail registration.
@@ -252,6 +269,32 @@ class AuthService {
       final deviceId = await DeviceSession.id();
       await _userRef(uid).update({'activeDevice': deviceId});
     }
+    // Remember the account on this device so the user can switch back to it
+    // without re-typing the password. Best-effort — never fail a sign-in on it.
+    try {
+      await _accounts.remember(email: email.trim(), password: password);
+    } on Exception {
+      // Credential caching is a convenience; sign-in already succeeded.
+    }
+  }
+
+  /// Switch to a previously-saved account on this device. Signs [email] in with
+  /// its stored password, which *replaces* the current Firebase session in
+  /// place (no explicit sign-out) and re-stamps `activeDevice`; [AuthGate]'s
+  /// streams then route to the new account. Replacing in place — rather than
+  /// signing out first — means a failure leaves the current account signed in,
+  /// so the caller can fall back to a prefilled login screen without a
+  /// signed-out flash.
+  ///
+  /// Throws [FirebaseAuthException]: `no-saved-credentials` when the account
+  /// isn't stored, or the usual `wrong-password`/`invalid-credential` when the
+  /// saved password is stale (changed on another device).
+  Future<void> switchToAccount(String email) async {
+    final creds = await _accounts.credentials(email);
+    if (creds == null) {
+      throw FirebaseAuthException(code: 'no-saved-credentials');
+    }
+    await signIn(email: creds.email, password: creds.password);
   }
 
   /// Verify the current user's password against Firebase. Throws a

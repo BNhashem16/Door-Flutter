@@ -38,6 +38,10 @@ class _AuthGateState extends State<AuthGate> {
   /// stream rebuild.
   String? _fcmUid;
 
+  /// Uid we last refreshed the saved-account display name for — avoids a
+  /// secure-storage write on every profile-stream rebuild.
+  String? _namedUid;
+
   /// Last value pushed to the home-screen widget lock flag — avoids redundant
   /// SharedPreferences writes on every rebuild.
   bool? _widgetEnabled;
@@ -58,6 +62,15 @@ class _AuthGateState extends State<AuthGate> {
     if (_fcmUid == uid) return;
     _fcmUid = uid;
     unawaited(_messaging.registerForUser(uid));
+  }
+
+  /// Push the real display name into the saved-account store once per uid, so
+  /// the account switcher shows names instead of bare emails. The email/password
+  /// were stored at sign-in time (before the name was known).
+  void _ensureAccountName(String uid, String email, String name) {
+    if (_namedUid == uid || email.isEmpty || name.isEmpty) return;
+    _namedUid = uid;
+    unawaited(_authService.accounts.setName(email, name));
   }
 
   /// Keep the widget lock in sync with the resolved auth state. Only an
@@ -83,6 +96,7 @@ class _AuthGateState extends State<AuthGate> {
         if (user == null) {
           _syncWidget(false);
           _fcmUid = null; // allow re-registration on next sign-in
+          _namedUid = null; // re-sync the name after the next sign-in
           return LoginScreen(authService: _authService);
         }
         _ensureFcm(user.uid);
@@ -118,6 +132,7 @@ class _AuthGateState extends State<AuthGate> {
               uid: user.uid,
               name: profile.name,
             );
+            _ensureAccountName(user.uid, user.email ?? '', profile.name);
             return switch (profile.status) {
               UserStatus.approved => FirebaseUpdateScreen(
                   onThemeToggle: widget.onThemeToggle,

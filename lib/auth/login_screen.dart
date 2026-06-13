@@ -9,9 +9,17 @@ import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.authService});
+  const LoginScreen({
+    super.key,
+    required this.authService,
+    this.initialEmail,
+  });
 
   final AuthService authService;
+
+  /// Pre-fills the email field — used by the account switcher when a saved
+  /// password is stale and the user must re-enter it for that account.
+  final String? initialEmail;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -29,6 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialEmail != null) _emailCtrl.text = widget.initialEmail!;
     _prefill();
   }
 
@@ -38,11 +47,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final enabled = await _bio.isEnabled();
     final available = await _bio.canUseBiometrics();
     if (!mounted) return;
-    if (creds != null) {
+    // When the switcher sent us here for a specific account, only auto-fill
+    // from the biometric store if it holds that same account — otherwise leave
+    // the password blank for the user to type.
+    final emailMatches = creds != null &&
+        (_emailCtrl.text.isEmpty ||
+            creds.email.trim().toLowerCase() ==
+                _emailCtrl.text.trim().toLowerCase());
+    if (creds != null && emailMatches) {
       if (_emailCtrl.text.isEmpty) _emailCtrl.text = creds.email;
       if (_passwordCtrl.text.isEmpty) _passwordCtrl.text = creds.password;
     }
-    setState(() => _canBiometric = enabled && available && creds != null);
+    setState(() =>
+        _canBiometric = enabled && available && creds != null && emailMatches);
   }
 
   Future<void> _biometricSignIn() async {

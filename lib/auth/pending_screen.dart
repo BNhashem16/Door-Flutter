@@ -4,6 +4,7 @@ import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../toast/toast_service.dart';
 import '../widgets/language_toggle_button.dart';
+import '../widgets/section_card.dart';
 import 'auth_service.dart';
 
 /// Shown to authenticated users whose account is not yet approved.
@@ -109,6 +110,23 @@ class _PendingScreenState extends State<PendingScreen> {
                     Text(body, textAlign: TextAlign.center),
                     const SizedBox(height: AppSpacing.xl),
                     if (!rejected) ...[
+                      SectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.pendingStepsTitle,
+                              style: theme.textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            _StepRow(number: 1, text: s.pendingStep1),
+                            _StepRow(number: 2, text: s.pendingStep2),
+                            _StepRow(number: 3, text: s.pendingStep3),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
                       TextField(
                         controller: _codeCtrl,
                         textAlign: TextAlign.center,
@@ -161,6 +179,50 @@ class _PendingScreenState extends State<PendingScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Numbered instruction row used in the pending-screen activation guide.
+class _StepRow extends StatelessWidget {
+  const _StepRow({required this.number, required this.text});
+
+  final int number;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$number',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(text, style: theme.textTheme.bodyMedium),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -88,6 +88,10 @@ abstract class AppStrings {
   // Pending / rejected
   String get pendingTitle;
   String get pendingBody;
+  String get pendingStepsTitle;
+  String get pendingStep1;
+  String get pendingStep2;
+  String get pendingStep3;
   String get rejectedTitle;
   String get rejectedBody;
   String get accessCodeLabel;
@@ -136,6 +140,14 @@ abstract class AppStrings {
   String get lightMode;
   String get darkMode;
   String get signOut;
+  String get switchAccountTitle;
+  String get currentAccountLabel;
+  String get addAnotherAccount;
+  String get switchingAccount;
+  String get switchAccountFailed;
+  String get removeAccountTitle;
+  String get removeAccountBody;
+  String get removeAccount;
   String get connecting;
   String get connected;
   String get disconnected;
@@ -594,7 +606,17 @@ class _Ar implements AppStrings {
   String get pendingTitle => 'بانتظار التفعيل';
   @override
   String get pendingBody =>
-      'تم إنشاء حسابك. أدخل رمز الدخول الذي حصلت عليه من إدارة المبنى لتفعيل حسابك.';
+      'تم إنشاء حسابك بنجاح. تبقّت خطوة واحدة: تفعيل الحساب برمز دخول من إدارة المبنى.';
+  @override
+  String get pendingStepsTitle => 'كيف تُفعّل حسابك؟';
+  @override
+  String get pendingStep1 =>
+      'احصل على رمز الدخول من إدارة المبنى، أو اضغط «اطلب رمز دخول» بالأسفل ليصلك من الإدارة.';
+  @override
+  String get pendingStep2 => 'اكتب الرمز في خانة «رمز الدخول» بالأسفل.';
+  @override
+  String get pendingStep3 =>
+      'اضغط «تفعيل» — يُفتح حسابك فورًا وتدخل على شاشة التحكم في البوابة.';
   @override
   String get rejectedTitle => 'تم رفض الحساب';
   @override
@@ -684,6 +706,24 @@ class _Ar implements AppStrings {
   String get darkMode => 'الوضع المظلم';
   @override
   String get signOut => 'تسجيل الخروج';
+  @override
+  String get switchAccountTitle => 'حساباتك';
+  @override
+  String get currentAccountLabel => 'الحساب الحالي';
+  @override
+  String get addAnotherAccount => 'إضافة حساب آخر';
+  @override
+  String get switchingAccount => 'جارٍ تبديل الحساب…';
+  @override
+  String get switchAccountFailed =>
+      'تعذّر الدخول لهذا الحساب. أدخل كلمة المرور من جديد.';
+  @override
+  String get removeAccountTitle => 'إزالة الحساب؟';
+  @override
+  String get removeAccountBody =>
+      'سيُزال هذا الحساب من قائمة الحسابات على هذا الجهاز. يمكنك إضافته مرة أخرى بتسجيل الدخول.';
+  @override
+  String get removeAccount => 'إزالة';
   @override
   String get connecting => 'جارٍ الاتصال';
   @override
@@ -1409,7 +1449,18 @@ class _En implements AppStrings {
   String get pendingTitle => 'Awaiting activation';
   @override
   String get pendingBody =>
-      'Your account was created. Enter the access code you received from the building admin to activate it.';
+      'Your account was created. One step left: activate it with an access code from the building admin.';
+  @override
+  String get pendingStepsTitle => 'How to activate your account';
+  @override
+  String get pendingStep1 =>
+      'Get an access code from the building admin, or tap "Request a code" below to have one sent to you.';
+  @override
+  String get pendingStep2 =>
+      'Type the code into the "Access code" field below.';
+  @override
+  String get pendingStep3 =>
+      'Tap "Activate" — your account opens instantly and you reach the gate control screen.';
   @override
   String get rejectedTitle => 'Account rejected';
   @override
@@ -1500,6 +1551,24 @@ class _En implements AppStrings {
   String get darkMode => 'Dark mode';
   @override
   String get signOut => 'Sign out';
+  @override
+  String get switchAccountTitle => 'Your accounts';
+  @override
+  String get currentAccountLabel => 'Current';
+  @override
+  String get addAnotherAccount => 'Add another account';
+  @override
+  String get switchingAccount => 'Switching account…';
+  @override
+  String get switchAccountFailed =>
+      'Could not sign in to this account. Enter the password again.';
+  @override
+  String get removeAccountTitle => 'Remove account?';
+  @override
+  String get removeAccountBody =>
+      'This account will be removed from the list on this device. You can add it again by signing in.';
+  @override
+  String get removeAccount => 'Remove';
   @override
   String get connecting => 'Connecting';
   @override

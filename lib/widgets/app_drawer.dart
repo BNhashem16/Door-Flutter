@@ -4,6 +4,7 @@ import '../about/about_developer_screen.dart';
 import '../about/legal_content.dart';
 import '../about/legal_screen.dart';
 import '../admin/admin_screen.dart';
+import '../auth/account_switcher_sheet.dart';
 import '../auth/auth_service.dart';
 import '../guest/guest_passes_screen.dart';
 import '../l10n/app_strings.dart';
@@ -205,41 +206,48 @@ class AppDrawer extends StatelessWidget {
     ColorScheme colorScheme,
     String email,
   ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
-      child: Row(
-        children: [
-          InitialsAvatar(
-            name: userName,
-            seed: authService.currentUser?.uid ?? '',
-            size: 52,
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  userName,
-                  style: theme.textTheme.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (email.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).pop();
+        AccountSwitcherSheet.show(context, authService);
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
+        child: Row(
+          children: [
+            InitialsAvatar(
+              name: userName,
+              seed: authService.currentUser?.uid ?? '',
+              size: 52,
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    email,
-                    style: theme.textTheme.labelMedium,
+                    userName,
+                    style: theme.textTheme.titleMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textDirection: TextDirection.ltr,
                   ),
+                  if (email.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      email,
+                      style: theme.textTheme.labelMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textDirection: TextDirection.ltr,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+            Icon(Icons.unfold_more_rounded, color: colorScheme.primary),
+          ],
+        ),
       ),
     );
   }
