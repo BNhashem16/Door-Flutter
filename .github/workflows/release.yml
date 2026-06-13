@@ -1,0 +1,82 @@
+name: Release
+
+# Push to master → if the pubspec version changed, build a signed release APK
+# and publish it as a new GitHub Release so it can be shared with users.
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'pubspec.yaml'   # only worth checking when the version line could have moved
+  workflow_dispatch:      # allow a manual run too
+
+jobs:
+  release:
+    name: 🚀 Build & Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # needed to create the release + tag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from pubspec
+        id: version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//' | tr -d ' \r')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Skip if tag already released
+        id: check
+        run: |
+          if git ls-remote --tags origin "refs/tags/${{ steps.version.outputs.tag }}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.version.outputs.tag }} exists — no new release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: subosito/flutter-action@v2
+        if: steps.check.outputs.exists == 'false'
+        with:
+          channel: 'stable'
+
+      - uses: actions/setup-java@v4
+        if: steps.check.outputs.exists == 'false'
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Decode release keystore
+        if: steps.check.outputs.exists == 'false'
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "${{ runner.temp }}/release.jks"
+
+      - name: flutter pub get
+        if: steps.check.outputs.exists == 'false'
+        run: flutter pub get
+
+      - name: Build signed release APK
+        if: steps.check.outputs.exists == 'false'
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: flutter build apk --release
+
+      - name: Rename APK with version
+        if: steps.check.outputs.exists == 'false'
+        run: cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Door-${{ steps.version.outputs.tag }}.apk"
+
+      - name: Publish GitHub Release
+        if: steps.check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Door ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: build/app/outputs/flutter-apk/Door-${{ steps.version.outputs.tag }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
