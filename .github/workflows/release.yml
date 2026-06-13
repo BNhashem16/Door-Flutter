@@ -37,6 +37,9 @@ jobs:
       - name: Decode release keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "${{ runner.temp }}/release.jks"
 
+      - name: Restore .env (bundled asset)
+        run: echo "${{ secrets.DOTENV_BASE64 }}" | base64 -d > .env
+
       - name: flutter pub get
         run: flutter pub get
 
