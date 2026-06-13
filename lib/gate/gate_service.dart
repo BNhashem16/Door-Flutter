@@ -5,10 +5,26 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
 
+/// Live gate snapshot: open/closed plus the device's last heartbeat.
+///
+/// The physical controller writes [lastSeenMs] (epoch ms) to
+/// `devices/D/lastSeen` every ~30s. A stale/absent value means the device is
+/// unreachable even though the app is still connected to the database.
+class GateStatus {
+  const GateStatus({required this.open, required this.lastSeenMs});
+
+  /// `true` = gate open (state == ON).
+  final bool open;
+
+  /// Epoch ms of the controller's most recent heartbeat, or null if it has
+  /// never written one.
+  final int? lastSeenMs;
+}
+
 /// Single source of truth for gate state read/toggle.
 ///
 /// Two transports, one contract:
-/// - In-app UI uses the **Realtime Database SDK** (`watchState` / `setOpen`)
+/// - In-app UI uses the **Realtime Database SDK** (`watchStatus` / `setOpen`)
 ///   so the screen stays continuously in sync with the database — no polling.
 /// - The home-screen widget background callback runs headless (no
 ///   `Firebase.initializeApp`, no signed-in user) so it falls back to the
@@ -42,14 +58,28 @@ class GateService {
   static bool _isOpen(Object? data) =>
       data is Map && data['state'] != null && data['state'] == 'ON';
 
-  /// Live gate state from the Realtime Database. Emits on every change so the
-  /// UI mirrors the database instantly. Errors propagate so callers can show a
-  /// disconnected state. Requires a signed-in user (security rules).
-  Stream<bool> watchState() {
+  /// Extracts the controller heartbeat (epoch ms) from the gate node, or null
+  /// if absent / malformed. Tolerates int or num encodings.
+  static int? _lastSeen(Object? data) {
+    if (data is! Map) return null;
+    final raw = data['lastSeen'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return null;
+  }
+
+  /// Live gate status (open state + device heartbeat) from the Realtime
+  /// Database. Emits on every change so the UI mirrors the database instantly.
+  /// Errors propagate so callers can show a disconnected state. Requires a
+  /// signed-in user (security rules).
+  Stream<GateStatus> watchStatus() {
     final ref = _gateRef();
     // Keep the node warm so it emits from cache immediately on next launch.
     unawaited(ref.keepSynced(true));
-    return ref.onValue.map((event) => _isOpen(event.snapshot.value));
+    return ref.onValue.map((event) {
+      final value = event.snapshot.value;
+      return GateStatus(open: _isOpen(value), lastSeenMs: _lastSeen(value));
+    });
   }
 
   /// Writes the gate state via the SDK and returns [open]. Throws on failure.

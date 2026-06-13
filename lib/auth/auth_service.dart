@@ -348,6 +348,20 @@ class AuthService {
     return _userRef(uid).update({'status': _statusRaw(status)});
   }
 
+  /// Admin: set the same [status] on many users in one atomic multi-path
+  /// update. Touches only each user's `status` field — never `role`/`email`/
+  /// `createdAt` — so the admin write rule is respected (same as [setStatus],
+  /// batched). Audit entries and push notifications are enqueued per-user by
+  /// the caller, mirroring the single-user path. No-op on an empty list.
+  Future<void> setStatusForUsers(List<String> uids, UserStatus status) {
+    if (uids.isEmpty) return Future<void>.value();
+    final raw = _statusRaw(status);
+    final updates = <String, Object?>{
+      for (final uid in uids) 'app_users/$uid/status': raw,
+    };
+    return _db.ref().update(updates);
+  }
+
   /// Admin: promote/demote a user's role.
   Future<void> setRole(String uid, UserRole role) {
     return _userRef(uid).update({'role': _roleRaw(role)});
@@ -569,7 +583,8 @@ class AuthService {
   // forbid an owner changing their own status.
 
   /// Public Cloudflare Worker base (shared with the guest redeem links).
-  static const String _workerBase = 'https://door-gate.hashem-codes.workers.dev';
+  static const String _workerBase =
+      'https://door-gate.hashem-codes.workers.dev';
 
   /// How long an issued access code stays valid.
   static const Duration accessCodeTtl = Duration(hours: 24);

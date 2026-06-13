@@ -19,7 +19,8 @@ void main() {
 
   group('parseAccessResult', () {
     test('ok=true → ok', () {
-      expect(AuthService.parseAccessResult({'ok': true}), AccessRedeemResult.ok);
+      expect(
+          AuthService.parseAccessResult({'ok': true}), AccessRedeemResult.ok);
     });
     test('maps each error string', () {
       expect(AuthService.parseAccessResult({'error': 'expired'}),

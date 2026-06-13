@@ -432,11 +432,33 @@ abstract class AppStrings {
   String get deviceNone;
   String get totalClosesLabel;
   String get guestPassesCountLabel;
+  String get guestArrivalsTitle;
+  String get guestArrivalsEmpty;
+  String guestArrivalsCount(int n);
   String get recentActivityTitle;
   String get viewFullLog;
   String get emailVerifiedLabel;
   String get yesLabel;
   String get noLabel;
+
+  // Admin: search / filter / bulk actions / resident directory
+  String get adminTabUsers;
+  String get adminTabDirectory;
+  String get adminSearchHint;
+  String get filterAll;
+  String get noMatchingResults;
+  String get unspecifiedUnit;
+  String unitResidents(int n);
+  String selectedCount(int n);
+  String get bulkApprove;
+  String get bulkSuspend;
+  String get bulkClear;
+  String get bulkApproveTitle;
+  String bulkApproveConfirm(int n);
+  String get bulkSuspendTitle;
+  String bulkSuspendConfirm(int n);
+  String bulkApplied(int n);
+  String get bulkFailed;
 
   // Dynamic messages
   String get unexpectedError;
@@ -595,7 +617,8 @@ class _Ar implements AppStrings {
   @override
   String get codeUsed => 'تم استخدام هذا الرمز من قبل.';
   @override
-  String get codeNetworkError => 'تعذّر الاتصال. تأكد من الإنترنت وحاول مجددًا.';
+  String get codeNetworkError =>
+      'تعذّر الاتصال. تأكد من الإنترنت وحاول مجددًا.';
   @override
   String get issueCodeButton => 'إصدار رمز';
   @override
@@ -1206,6 +1229,12 @@ class _Ar implements AppStrings {
   @override
   String get guestPassesCountLabel => 'تصاريح الزوار';
   @override
+  String get guestArrivalsTitle => 'سجل الوصول';
+  @override
+  String get guestArrivalsEmpty => 'لم يصل أحد بعد';
+  @override
+  String guestArrivalsCount(int n) => 'عدد مرات الوصول: $n';
+  @override
   String get recentActivityTitle => 'آخر النشاط';
   @override
   String get viewFullLog => 'عرض السجل كاملاً';
@@ -1215,6 +1244,41 @@ class _Ar implements AppStrings {
   String get yesLabel => 'نعم';
   @override
   String get noLabel => 'لا';
+
+  @override
+  String get adminTabUsers => 'المستخدمون';
+  @override
+  String get adminTabDirectory => 'دليل السكان';
+  @override
+  String get adminSearchHint => 'ابحث بالاسم أو البريد أو الشقة';
+  @override
+  String get filterAll => 'الكل';
+  @override
+  String get noMatchingResults => 'لا توجد نتائج مطابقة';
+  @override
+  String get unspecifiedUnit => 'شقة غير محددة';
+  @override
+  String unitResidents(int n) => '$n ساكن';
+  @override
+  String selectedCount(int n) => 'تم تحديد $n';
+  @override
+  String get bulkApprove => 'موافقة على المحدد';
+  @override
+  String get bulkSuspend => 'تعليق المحدد';
+  @override
+  String get bulkClear => 'إلغاء التحديد';
+  @override
+  String get bulkApproveTitle => 'موافقة جماعية';
+  @override
+  String bulkApproveConfirm(int n) => 'الموافقة على $n مستخدم؟';
+  @override
+  String get bulkSuspendTitle => 'تعليق جماعي';
+  @override
+  String bulkSuspendConfirm(int n) => 'تعليق (رفض) $n مستخدم؟';
+  @override
+  String bulkApplied(int n) => 'تم تحديث $n مستخدم';
+  @override
+  String get bulkFailed => 'تعذّر تنفيذ الإجراء الجماعي';
 }
 
 class _En implements AppStrings {
@@ -1358,7 +1422,8 @@ class _En implements AppStrings {
   @override
   String get requestCodeButton => 'Request a code';
   @override
-  String get codeRequested => 'Request sent. The admin will send you a code soon.';
+  String get codeRequested =>
+      'Request sent. The admin will send you a code soon.';
   @override
   String get codeRequestError => 'Could not send the request. Try again.';
   @override
@@ -1368,7 +1433,8 @@ class _En implements AppStrings {
   @override
   String get codeUsed => 'This code was already used.';
   @override
-  String get codeNetworkError => 'Connection failed. Check your internet and retry.';
+  String get codeNetworkError =>
+      'Connection failed. Check your internet and retry.';
   @override
   String get issueCodeButton => 'Issue code';
   @override
@@ -1988,6 +2054,12 @@ class _En implements AppStrings {
   @override
   String get guestPassesCountLabel => 'Guest passes';
   @override
+  String get guestArrivalsTitle => 'Arrivals';
+  @override
+  String get guestArrivalsEmpty => 'No arrivals yet';
+  @override
+  String guestArrivalsCount(int n) => '$n arrivals';
+  @override
   String get recentActivityTitle => 'Recent activity';
   @override
   String get viewFullLog => 'View full log';
@@ -1997,6 +2069,41 @@ class _En implements AppStrings {
   String get yesLabel => 'Yes';
   @override
   String get noLabel => 'No';
+
+  @override
+  String get adminTabUsers => 'Users';
+  @override
+  String get adminTabDirectory => 'Directory';
+  @override
+  String get adminSearchHint => 'Search by name, email, or unit';
+  @override
+  String get filterAll => 'All';
+  @override
+  String get noMatchingResults => 'No matching results';
+  @override
+  String get unspecifiedUnit => 'Unspecified unit';
+  @override
+  String unitResidents(int n) => n == 1 ? '1 resident' : '$n residents';
+  @override
+  String selectedCount(int n) => '$n selected';
+  @override
+  String get bulkApprove => 'Approve selected';
+  @override
+  String get bulkSuspend => 'Suspend selected';
+  @override
+  String get bulkClear => 'Clear';
+  @override
+  String get bulkApproveTitle => 'Bulk approve';
+  @override
+  String bulkApproveConfirm(int n) => 'Approve $n users?';
+  @override
+  String get bulkSuspendTitle => 'Bulk suspend';
+  @override
+  String bulkSuspendConfirm(int n) => 'Suspend (reject) $n users?';
+  @override
+  String bulkApplied(int n) => 'Updated $n users';
+  @override
+  String get bulkFailed => 'Bulk action failed';
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

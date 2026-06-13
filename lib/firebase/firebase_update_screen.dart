@@ -55,7 +55,7 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
   final GateSound _sound = GateSound();
   final BiometricService _bio = BiometricService();
   final RingService _ring = RingService();
-  StreamSubscription<bool>? _stateSub;
+  StreamSubscription<GateStatus>? _stateSub;
   StreamSubscription<List<GateLog>>? _logsSub;
   StreamSubscription<RingRequest?>? _ringSub;
 
@@ -84,11 +84,11 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
 
   /// Continuously mirror the database: every gate change pushes here live.
   void _listenToGate() {
-    _stateSub = _gate.watchState().listen(
-      (open) {
+    _stateSub = _gate.watchStatus().listen(
+      (status) {
         if (!mounted) return;
         setState(() {
-          _gateStatus = open;
+          _gateStatus = status.open;
           _hasState = true;
           _conn = _Conn.connected;
         });

@@ -43,7 +43,8 @@ void main() {
       expect(cat(TicketCategory.other), 'other');
     });
 
-    test('fromMap defaults unknown category to other and missing status to open',
+    test(
+        'fromMap defaults unknown category to other and missing status to open',
         () {
       final t = SupportTicket.fromMap('i', 'u', const {
         'message': 'hi',
