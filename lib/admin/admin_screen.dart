@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../analytics/analytics_screen.dart';
 import '../auth/auth_service.dart';
@@ -10,6 +11,7 @@ import '../widgets/initials_avatar.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import '../logs/logs_screen.dart';
+import 'admin_user_detail_screen.dart';
 import 'admin_user_edit_screen.dart';
 import 'announcement_compose_sheet.dart';
 import 'audit_log_screen.dart';
@@ -159,13 +161,60 @@ class _UserTile extends StatelessWidget {
     );
   }
 
+  /// Issue (or reissue) an access code for a pending user, audit it, and show
+  /// the value in a copyable dialog for out-of-band hand-off.
+  Future<void> _issueCode(BuildContext context) async {
+    final s = AppStrings.of(context);
+    try {
+      final code = await authService.issueAccessCode(
+        uid: user.uid,
+        email: user.email,
+      );
+      await authService.recordAudit(
+        actorName: adminName,
+        action: 'issue_code',
+        targetUid: user.uid,
+        targetName: user.name,
+      );
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(s.issueCodeTitle),
+          content: SelectableText(s.issueCodeBody(code)),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: code));
+                if (!ctx.mounted) return;
+                Navigator.of(ctx).pop();
+                showToast(context, s.codeCopied);
+              },
+              icon: const Icon(Icons.copy),
+              label: Text(s.copyCode),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(s.cancel),
+            ),
+          ],
+        ),
+      );
+    } on Exception {
+      if (!context.mounted) return;
+      showToast(context, s.issueCodeError);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = AppStrings.of(context);
     final me = authService.currentUser?.uid == user.uid;
-    return SectionCard(
-      child: Column(
+    return GestureDetector(
+      onTap: () => _openDetail(context),
+      child: SectionCard(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -210,6 +259,14 @@ class _UserTile extends StatelessWidget {
                     label: Text(s.approve,
                         style: const TextStyle(color: Color(0xFF059669))),
                   ),
+                if (user.status == UserStatus.pending)
+                  TextButton.icon(
+                    onPressed: () => _issueCode(context),
+                    icon: const Icon(Icons.vpn_key_outlined,
+                        color: Color(0xFF2563EB)),
+                    label: Text(s.issueCodeButton,
+                        style: const TextStyle(color: Color(0xFF2563EB))),
+                  ),
                 if (user.status != UserStatus.rejected)
                   TextButton.icon(
                     onPressed: () => _setStatus(UserStatus.rejected),
@@ -245,7 +302,20 @@ class _UserTile extends StatelessWidget {
               ],
             ),
           ],
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AdminUserDetailScreen(
+          authService: authService,
+          adminName: adminName,
+          user: user,
+        ),
       ),
     );
   }
