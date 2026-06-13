@@ -53,7 +53,7 @@
       ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
       ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
       "$pushId": {
-        ".write": "auth != null && !data.exists() && newData.child('type').val() === 'new_user' && newData.child('targetUid').val() === auth.uid",
+        ".write": "auth != null && !data.exists() && (newData.child('type').val() === 'new_user' || newData.child('type').val() === 'code_request') && newData.child('targetUid').val() === auth.uid",
         ".validate": "newData.hasChildren(['type', 'createdAt'])"
       }
     },
@@ -86,6 +86,13 @@
       ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
       "$entryId": {
         ".validate": "newData.hasChildren(['actorUid', 'action', 'timestamp'])"
+      }
+    },
+    "access_codes": {
+      ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+        ".validate": "newData.hasChildren(['code', 'expiresAt'])"
       }
     }
   }
