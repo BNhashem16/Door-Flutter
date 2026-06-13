@@ -4,10 +4,8 @@ name: Release
 # and publish it as a new GitHub Release so it can be shared with users.
 on:
   push:
-    branches: [ master ]
-    paths:
-      - 'pubspec.yaml'   # only worth checking when the version line could have moved
-  workflow_dispatch:      # allow a manual run too
+    branches: [ master ]   # every push runs; the tag-exists guard below blocks duplicate releases
+  workflow_dispatch:        # allow a manual run too
 
 jobs:
   release:
