@@ -90,6 +90,22 @@ abstract class AppStrings {
   String get pendingBody;
   String get rejectedTitle;
   String get rejectedBody;
+  String get accessCodeLabel;
+  String get activateCodeButton;
+  String get requestCodeButton;
+  String get codeRequested;
+  String get codeRequestError;
+  String get codeInvalid;
+  String get codeExpired;
+  String get codeUsed;
+  String get codeNetworkError;
+  // Admin: issue access code
+  String get issueCodeButton;
+  String get issueCodeTitle;
+  String issueCodeBody(String code);
+  String get issueCodeError;
+  String get copyCode;
+  String get codeCopied;
 
   // Admin
   String get adminTitle;
@@ -138,6 +154,11 @@ abstract class AppStrings {
   String get stateClosed;
   String get syncLabel;
   String get syncLive;
+
+  // Gate device offline (heartbeat stale)
+  String get gateOfflineTitle;
+  String get gateOfflineBody;
+  String gateLastSeen(String when);
 
   // Activity / last-open
   String greeting(String name);
@@ -402,6 +423,21 @@ abstract class AppStrings {
   String get aboutEmailAction;
   String get aboutLaunchFailed;
 
+  // Admin user detail (per-user account view)
+  String get adminUserDetailTitle;
+  String get userOverviewTitle;
+  String get joinedLabel;
+  String get activeDeviceLabel;
+  String get deviceBound;
+  String get deviceNone;
+  String get totalClosesLabel;
+  String get guestPassesCountLabel;
+  String get recentActivityTitle;
+  String get viewFullLog;
+  String get emailVerifiedLabel;
+  String get yesLabel;
+  String get noLabel;
+
   // Dynamic messages
   String get unexpectedError;
   String connectionError(Object error);
@@ -533,15 +569,46 @@ class _Ar implements AppStrings {
       };
 
   @override
-  String get pendingTitle => 'بانتظار الموافقة';
+  String get pendingTitle => 'بانتظار التفعيل';
   @override
   String get pendingBody =>
-      'تم إنشاء حسابك بنجاح. سيتمكن المسؤول من الموافقة عليه قريبًا.';
+      'تم إنشاء حسابك. أدخل رمز الدخول الذي حصلت عليه من إدارة المبنى لتفعيل حسابك.';
   @override
   String get rejectedTitle => 'تم رفض الحساب';
   @override
   String get rejectedBody =>
       'تم رفض حسابك. تواصل مع المسؤول لمزيد من المعلومات.';
+  @override
+  String get accessCodeLabel => 'رمز الدخول';
+  @override
+  String get activateCodeButton => 'تفعيل';
+  @override
+  String get requestCodeButton => 'اطلب رمز دخول';
+  @override
+  String get codeRequested => 'تم إرسال طلبك. سيصلك رمز قريبًا من الإدارة.';
+  @override
+  String get codeRequestError => 'تعذّر إرسال الطلب. حاول مرة أخرى.';
+  @override
+  String get codeInvalid => 'رمز غير صحيح.';
+  @override
+  String get codeExpired => 'انتهت صلاحية الرمز. اطلب رمزًا جديدًا.';
+  @override
+  String get codeUsed => 'تم استخدام هذا الرمز من قبل.';
+  @override
+  String get codeNetworkError => 'تعذّر الاتصال. تأكد من الإنترنت وحاول مجددًا.';
+  @override
+  String get issueCodeButton => 'إصدار رمز';
+  @override
+  String get issueCodeTitle => 'رمز الدخول';
+  @override
+  String issueCodeBody(String code) =>
+      'الرمز: $code\nصالح لمدة ٢٤ ساعة ولمرة واحدة. سلّمه للمستخدم لتفعيل حسابه.';
+  @override
+  String get issueCodeError => 'تعذّر إصدار الرمز. حاول مرة أخرى.';
+  @override
+  String get copyCode => 'نسخ الرمز';
+  @override
+  String get codeCopied => 'تم نسخ الرمز';
 
   @override
   String get adminTitle => 'إدارة المستخدمين';
@@ -630,6 +697,14 @@ class _Ar implements AppStrings {
   String get syncLabel => 'المزامنة';
   @override
   String get syncLive => 'مباشرة (لحظية)';
+
+  @override
+  String get gateOfflineTitle => 'البوابة غير متصلة';
+  @override
+  String get gateOfflineBody =>
+      'جهاز التحكم في البوابة لا يستجيب حاليًا. قد لا تعمل أوامر الفتح — تواصل مع إدارة المبنى.';
+  @override
+  String gateLastSeen(String when) => 'آخر اتصال بالجهاز: $when';
 
   @override
   String greeting(String name) => 'أهلاً، $name';
@@ -1113,6 +1188,33 @@ class _Ar implements AppStrings {
   String get aboutEmailAction => 'مراسلة بالبريد';
   @override
   String get aboutLaunchFailed => 'تعذّر فتح التطبيق المطلوب';
+
+  @override
+  String get adminUserDetailTitle => 'تفاصيل المستخدم';
+  @override
+  String get userOverviewTitle => 'نظرة عامة';
+  @override
+  String get joinedLabel => 'تاريخ الانضمام';
+  @override
+  String get activeDeviceLabel => 'الجهاز النشط';
+  @override
+  String get deviceBound => 'مربوط بجهاز';
+  @override
+  String get deviceNone => 'لا يوجد';
+  @override
+  String get totalClosesLabel => 'إجمالي مرات الإغلاق';
+  @override
+  String get guestPassesCountLabel => 'تصاريح الزوار';
+  @override
+  String get recentActivityTitle => 'آخر النشاط';
+  @override
+  String get viewFullLog => 'عرض السجل كاملاً';
+  @override
+  String get emailVerifiedLabel => 'تأكيد البريد';
+  @override
+  String get yesLabel => 'نعم';
+  @override
+  String get noLabel => 'لا';
 }
 
 class _En implements AppStrings {
@@ -1240,15 +1342,46 @@ class _En implements AppStrings {
       };
 
   @override
-  String get pendingTitle => 'Awaiting approval';
+  String get pendingTitle => 'Awaiting activation';
   @override
   String get pendingBody =>
-      'Your account was created successfully. An administrator will approve it soon.';
+      'Your account was created. Enter the access code you received from the building admin to activate it.';
   @override
   String get rejectedTitle => 'Account rejected';
   @override
   String get rejectedBody =>
       'Your account was rejected. Contact the administrator for more information.';
+  @override
+  String get accessCodeLabel => 'Access code';
+  @override
+  String get activateCodeButton => 'Activate';
+  @override
+  String get requestCodeButton => 'Request a code';
+  @override
+  String get codeRequested => 'Request sent. The admin will send you a code soon.';
+  @override
+  String get codeRequestError => 'Could not send the request. Try again.';
+  @override
+  String get codeInvalid => 'Invalid code.';
+  @override
+  String get codeExpired => 'The code expired. Request a new one.';
+  @override
+  String get codeUsed => 'This code was already used.';
+  @override
+  String get codeNetworkError => 'Connection failed. Check your internet and retry.';
+  @override
+  String get issueCodeButton => 'Issue code';
+  @override
+  String get issueCodeTitle => 'Access code';
+  @override
+  String issueCodeBody(String code) =>
+      'Code: $code\nValid for 24 hours, single use. Hand it to the user to activate their account.';
+  @override
+  String get issueCodeError => 'Could not issue the code. Try again.';
+  @override
+  String get copyCode => 'Copy code';
+  @override
+  String get codeCopied => 'Code copied';
 
   @override
   String get adminTitle => 'Manage users';
@@ -1337,6 +1470,15 @@ class _En implements AppStrings {
   String get syncLabel => 'Sync';
   @override
   String get syncLive => 'Live (instant)';
+
+  @override
+  String get gateOfflineTitle => 'Gate offline';
+  @override
+  String get gateOfflineBody =>
+      "The gate controller isn't responding. Open commands may not work — "
+      'contact building management.';
+  @override
+  String gateLastSeen(String when) => 'Device last seen: $when';
 
   @override
   String greeting(String name) => 'Hi, $name';
@@ -1828,6 +1970,33 @@ class _En implements AppStrings {
   String get aboutEmailAction => 'Email';
   @override
   String get aboutLaunchFailed => 'Could not open the requested app';
+
+  @override
+  String get adminUserDetailTitle => 'User details';
+  @override
+  String get userOverviewTitle => 'Overview';
+  @override
+  String get joinedLabel => 'Joined';
+  @override
+  String get activeDeviceLabel => 'Active device';
+  @override
+  String get deviceBound => 'Bound to a device';
+  @override
+  String get deviceNone => 'None';
+  @override
+  String get totalClosesLabel => 'Total closes';
+  @override
+  String get guestPassesCountLabel => 'Guest passes';
+  @override
+  String get recentActivityTitle => 'Recent activity';
+  @override
+  String get viewFullLog => 'View full log';
+  @override
+  String get emailVerifiedLabel => 'Email verified';
+  @override
+  String get yesLabel => 'Yes';
+  @override
+  String get noLabel => 'No';
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {
