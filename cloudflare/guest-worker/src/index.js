@@ -340,6 +340,91 @@ function htmlResponse(body, status) {
   });
 }
 
+function jsonResponse(obj, status) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+// Mirror of src/access_validator.mjs (kept identical; that module is the tested
+// reference). Returns an error reason or null when redemption is allowed.
+function accessInvalidReason(rec, profile, code, now) {
+  if (!rec || typeof rec !== 'object') return 'invalid';
+  if (typeof code !== 'string' || rec.code !== code) return 'invalid';
+  if (rec.used === true) return 'used';
+  if (typeof rec.expiresAt !== 'number' || now > rec.expiresAt) return 'expired';
+  if (!profile || typeof profile !== 'object' || profile.status !== 'pending') {
+    return 'not_pending';
+  }
+  return null;
+}
+
+// POST /access {uid, code} — a pending user redeems an admin-issued access
+// code. Validates against /access_codes/{uid} + /app_users/{uid}; on success
+// flips status to approved (service-account write bypasses the owner-can't-set-
+// status rule), burns the code, pushes the "approved" notice, and audits.
+async function handleAccess(request, env, token) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (_) {
+    return jsonResponse({ error: 'invalid' }, 400);
+  }
+  const uid = (body.uid || '').toString();
+  const code = (body.code || '').toString().trim().toLowerCase();
+  if (!uid || !/^[a-z2-7]{8}$/.test(code)) {
+    return jsonResponse({ error: 'invalid' }, 400);
+  }
+
+  const recRes = await dbFetch(`access_codes/${uid}`, token);
+  const profRes = await dbFetch(`app_users/${uid}`, token);
+  const rec = recRes.ok ? await recRes.json() : null;
+  const profile = profRes.ok ? await profRes.json() : null;
+
+  const reason = accessInvalidReason(rec, profile, code, Date.now());
+  if (reason) return jsonResponse({ error: reason }, 200);
+
+  // Approve + burn the code.
+  await dbFetch(`app_users/${uid}/status`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify('approved'),
+  });
+  await dbFetch(`access_codes/${uid}/used`, token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: 'true',
+  });
+
+  const name = (profile && profile.name) || '';
+  await pushToUser(
+    env,
+    token,
+    uid,
+    _PUSH_COPY.approved[0],
+    _PUSH_COPY.approved[1],
+    'approved',
+  );
+  await dbFetch('audit_logs', token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      actorUid: uid,
+      actorName: name,
+      action: 'code_redeemed',
+      targetUid: uid,
+      targetName: name,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+
+  return jsonResponse({ ok: true }, 200);
+}
+
 // Atomic bump via ETag compare-and-swap. Returns 'ok' | reason-string.
 async function redeem(u, c, token, env) {
   const path = `guest_passes/${u}/${c}`;
@@ -476,6 +561,7 @@ const _ALWAYS_SEND = new Set([
   'rejected',
   'ticket_resolved',
   'new_user',
+  'code_request',
 ]);
 
 async function prefAllows(accessToken, uid, type) {
@@ -598,6 +684,26 @@ async function drainPushOutbox(env, accessToken) {
             'new_user',
           );
         }
+      } else if (item.type === 'code_request' && item.targetUid) {
+        // Pending user asked for a fresh access code → alert every admin.
+        const profRes = await dbFetch(
+          `app_users/${item.targetUid}`,
+          accessToken,
+        );
+        const prof = profRes.ok ? await profRes.json() : null;
+        const name = (prof && prof.name) || 'مستخدم';
+        const email = (prof && prof.email) || '';
+        const admins = await adminUids(accessToken);
+        for (const uid of admins) {
+          await pushToUser(
+            env,
+            accessToken,
+            uid,
+            'طلب رمز دخول',
+            `${name}${email ? ` (${email})` : ''} يطلب رمز دخول. أصدر رمزًا من شاشة الإدارة.`,
+            'code_request',
+          );
+        }
       } else if (item.targetUid) {
         const copy = _PUSH_COPY[item.type];
         if (copy) {
@@ -712,6 +818,20 @@ export default {
         return htmlResponse(renderRingPage(true), 200);
       }
       return htmlResponse(renderRingPage(false), 200);
+    }
+
+    // Access-code redeem (in-app JSON API): pending user → approved.
+    if (url.pathname.endsWith('/access')) {
+      if (request.method !== 'POST') {
+        return jsonResponse({ error: 'invalid' }, 405);
+      }
+      let token;
+      try {
+        token = await getAccessToken(env);
+      } catch (_) {
+        return jsonResponse({ error: 'error' }, 500);
+      }
+      return handleAccess(request, env, token);
     }
 
     let u = url.searchParams.get('u') || '';
