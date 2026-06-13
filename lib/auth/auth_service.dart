@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 
 import '../admin/audit_log.dart';
 import '../logs/gate_log.dart';
@@ -18,6 +21,9 @@ enum UserStatus { pending, approved, rejected, unknown }
 
 /// User role.
 enum UserRole { user, admin }
+
+/// Outcome of redeeming an access code through the Worker `/access` endpoint.
+enum AccessRedeemResult { ok, invalid, expired, used, notPending, networkError }
 
 /// Immutable profile record stored under /app_users/{uid}.
 class AppUser {
@@ -197,10 +203,11 @@ class AuthService {
       email: email.trim(),
       name: name.trim(),
       role: UserRole.user,
-      // Auto-approve on signup: the email OTP already proved ownership, so new
-      // residents get access immediately. The admin reviews the user list and
-      // suspends (rejects) anyone who shouldn't be there.
-      status: UserStatus.approved,
+      // No auto-approve: a new resident lands on the pending screen and must
+      // redeem an admin-issued access code (see issueAccessCode /
+      // redeemAccessCode) before reaching the gate. The 'new_user' push below
+      // alerts admins to issue a code.
+      status: UserStatus.pending,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     await _userRef(uid).set(profile.toMap());
@@ -553,6 +560,96 @@ class AuthService {
   /// Owner: set whether [type] notifications are enabled.
   Future<void> setNotificationPref(String uid, String type, bool enabled) {
     return _db.ref('notification_prefs/$uid').update({type: enabled});
+  }
+
+  // --- Access codes (/access_codes/{uid}) ---
+  // Admin issues a single-use, 24h, email-bound code out-of-band; the pending
+  // user redeems it through the Worker, which (service account) flips status to
+  // approved. The status write itself can never happen client-side — the rules
+  // forbid an owner changing their own status.
+
+  /// Public Cloudflare Worker base (shared with the guest redeem links).
+  static const String _workerBase = 'https://door-gate.hashem-codes.workers.dev';
+
+  /// How long an issued access code stays valid.
+  static const Duration accessCodeTtl = Duration(hours: 24);
+
+  static const String _codeAlphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+
+  /// Cryptographically-strong 8-char base32 code (~40 bits), hand-typed once.
+  static String generateAccessCode() {
+    final rng = Random.secure();
+    return List.generate(
+      8,
+      (_) => _codeAlphabet[rng.nextInt(_codeAlphabet.length)],
+    ).join();
+  }
+
+  /// Map the Worker `/access` JSON body to a typed result. Pure — unit-tested.
+  static AccessRedeemResult parseAccessResult(Map<String, dynamic> body) {
+    if (body['ok'] == true) return AccessRedeemResult.ok;
+    return switch (body['error']) {
+      'expired' => AccessRedeemResult.expired,
+      'used' => AccessRedeemResult.used,
+      'not_pending' => AccessRedeemResult.notPending,
+      _ => AccessRedeemResult.invalid,
+    };
+  }
+
+  /// Admin: issue (or reissue, overwriting) an access code for [uid]. Returns
+  /// the plaintext code so the caller can show it for out-of-band hand-off.
+  Future<String> issueAccessCode({
+    required String uid,
+    required String email,
+  }) async {
+    final code = generateAccessCode();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.ref('access_codes/$uid').set({
+      'code': code,
+      'email': email.trim(),
+      'createdAt': now,
+      'expiresAt': now + accessCodeTtl.inMilliseconds,
+      'createdBy': _auth.currentUser?.uid ?? '',
+      'used': false,
+    });
+    return code;
+  }
+
+  /// Pending user: redeem [code] via the Worker. On [AccessRedeemResult.ok] the
+  /// profile stream observed by [AuthGate] flips to approved and routes onward.
+  Future<AccessRedeemResult> redeemAccessCode({
+    required String uid,
+    required String code,
+  }) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_workerBase/access'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'uid': uid, 'code': code.trim().toLowerCase()}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200 && res.statusCode != 400) {
+        return AccessRedeemResult.networkError;
+      }
+      final body = jsonDecode(res.body);
+      if (body is! Map) return AccessRedeemResult.invalid;
+      return parseAccessResult(body.cast<String, dynamic>());
+    } on Exception {
+      return AccessRedeemResult.networkError;
+    }
+  }
+
+  /// Pending user: ask admins to issue a fresh code. The Worker cron fans this
+  /// out to every admin. Best-effort — a thrown future is the caller's to toast.
+  Future<void> requestAccessCode() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return Future<void>.value();
+    return _db.ref('push_outbox').push().set({
+      'type': 'code_request',
+      'targetUid': uid,
+      'createdAt': ServerValue.timestamp,
+    });
   }
 
   static String _roleRaw(UserRole role) =>
