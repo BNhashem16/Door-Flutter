@@ -55,11 +55,54 @@ class _GuestPassesScreenState extends State<GuestPassesScreen> {
 
   Future<void> _revoke(GuestPass pass) async {
     final s = AppStrings.of(context);
+    final confirmed = await _confirm(
+      title: s.guestRevokeTitle,
+      message: s.guestRevokeConfirm(pass.label),
+      action: s.guestRevoke,
+    );
+    if (!confirmed || !mounted) return;
+    await _run(() => _service.revoke(_uid, pass.id), s.guestRevoked);
+  }
+
+  Future<void> _delete(GuestPass pass) async {
+    final s = AppStrings.of(context);
+    final label = pass.label.isEmpty ? s.guestPassesTitle : pass.label;
+    final confirmed = await _confirm(
+      title: s.guestDeleteTitle,
+      message: s.guestDeleteConfirm(label),
+      action: s.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    await _run(() => _service.delete(_uid, pass.id), s.guestDeleted);
+  }
+
+  Future<void> _deleteAll() async {
+    final s = AppStrings.of(context);
+    final confirmed = await _confirm(
+      title: s.guestDeleteAllTitle,
+      message: s.guestDeleteAllConfirm,
+      action: s.guestDeleteAll,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    await _run(() => _service.deleteAll(_uid), s.guestAllDeleted);
+  }
+
+  /// Shared confirm dialog; destructive actions get the danger accent.
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String action,
+    bool destructive = false,
+  }) async {
+    final colors = Theme.of(context).extension<AppColors>()!;
+    final s = AppStrings.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(s.guestRevokeTitle),
-        content: Text(s.guestRevokeConfirm(pass.label)),
+        title: Text(title),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -67,17 +110,25 @@ class _GuestPassesScreenState extends State<GuestPassesScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(s.guestRevoke),
+            style: destructive
+                ? TextButton.styleFrom(foregroundColor: colors.danger)
+                : null,
+            child: Text(action),
           ),
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    return confirmed == true;
+  }
+
+  /// Runs a service write, then shows a success or error snackbar.
+  Future<void> _run(Future<void> Function() write, String successMsg) async {
+    final s = AppStrings.of(context);
     try {
-      await _service.revoke(_uid, pass.id);
+      await write();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(s.guestRevoked)),
+        SnackBar(content: Text(successMsg)),
       );
     } catch (_) {
       if (!mounted) return;
@@ -95,39 +146,55 @@ class _GuestPassesScreenState extends State<GuestPassesScreen> {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(s.guestPassesTitle)),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _create,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(s.newGuestPass),
-      ),
-      body: StreamBuilder<List<GuestPass>>(
-        stream: _service.watchPasses(_uid),
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return Center(child: Text(s.guestPassLoadError));
-          }
-          final passes = snap.data ?? const <GuestPass>[];
-          if (passes.isEmpty) {
-            return _Empty(onCreate: _create);
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.md, AppSpacing.md, 96),
-            itemCount: passes.length,
-            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (_, i) => _PassTile(
-              pass: passes[i],
-              onShare: () => _share(passes[i]),
-              onRevoke: () => _revoke(passes[i]),
-            ),
-          );
-        },
-      ),
+    return StreamBuilder<List<GuestPass>>(
+      stream: _service.watchPasses(_uid),
+      builder: (context, snap) {
+        final passes = snap.data ?? const <GuestPass>[];
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(s.guestPassesTitle),
+            actions: [
+              if (passes.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep_rounded),
+                  tooltip: s.guestDeleteAll,
+                  onPressed: _deleteAll,
+                ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _create,
+            icon: const Icon(Icons.add_rounded),
+            label: Text(s.newGuestPass),
+          ),
+          body: Builder(
+            builder: (context) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snap.hasError) {
+                return Center(child: Text(s.guestPassLoadError));
+              }
+              if (passes.isEmpty) {
+                return _Empty(onCreate: _create);
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, AppSpacing.md, AppSpacing.md, 96),
+                itemCount: passes.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: AppSpacing.sm),
+                itemBuilder: (_, i) => _PassTile(
+                  pass: passes[i],
+                  onShare: () => _share(passes[i]),
+                  onRevoke: () => _revoke(passes[i]),
+                  onDelete: () => _delete(passes[i]),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -137,11 +204,13 @@ class _PassTile extends StatelessWidget {
     required this.pass,
     required this.onShare,
     required this.onRevoke,
+    required this.onDelete,
   });
 
   final GuestPass pass;
   final VoidCallback onShare;
   final VoidCallback onRevoke;
+  final VoidCallback onDelete;
 
   String _formatExpiry(int ms) {
     final dt = DateTime.fromMillisecondsSinceEpoch(ms);
@@ -226,6 +295,14 @@ class _PassTile extends StatelessWidget {
                   tooltip: s.guestRevoke,
                   onPressed: onRevoke,
                 ),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: Theme.of(context).extension<AppColors>()!.danger,
+                ),
+                tooltip: s.guestDeleteTitle,
+                onPressed: onDelete,
+              ),
             ],
           ),
         ),

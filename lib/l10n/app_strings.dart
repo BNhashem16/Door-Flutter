@@ -65,6 +65,9 @@ abstract class AppStrings {
   String get otpTooManyAttempts;
   String otpCooldown(int seconds);
   String get verifyCodeButton;
+  String get verifyEmailSpamHint;
+  String get openEmailAppButton;
+  String get openEmailAppFailed;
 
   // Forgot password (signed out) + change password (signed in)
   String get forgotPassword;
@@ -184,6 +187,13 @@ abstract class AppStrings {
   String get guestRevokeTitle;
   String guestRevokeConfirm(String label);
   String get guestRevoked;
+  String get guestDeleteTitle;
+  String guestDeleteConfirm(String label);
+  String get guestDeleted;
+  String get guestDeleteAllTitle;
+  String get guestDeleteAllConfirm;
+  String get guestDeleteAll;
+  String get guestAllDeleted;
   // Create sheet
   String get guestLabelLabel;
   String get guestLabelHint;
@@ -366,6 +376,32 @@ abstract class AppStrings {
   String get ob3Title;
   String get ob3Body;
 
+  // App update (in-app version gate)
+  String get updateRequiredTitle;
+  String get updateRequiredBody;
+  String get updateAvailableTitle;
+  String get updateAvailableBody;
+  String get updateDownloadButton;
+  String get updateLaterButton;
+  String get updateOpenFailed;
+
+  // Drawer (sidebar)
+  String get drawerFeaturesSection;
+  String get drawerSettingsSection;
+  String get drawerAboutSection;
+  String get drawerHome;
+
+  // Legal + about developer
+  String get privacyPolicyTitle;
+  String get termsTitle;
+  String get aboutDeveloperTitle;
+  String get developerName;
+  String get developerRole;
+  String get aboutContactHint;
+  String get aboutCallAction;
+  String get aboutEmailAction;
+  String get aboutLaunchFailed;
+
   // Dynamic messages
   String get unexpectedError;
   String connectionError(Object error);
@@ -449,6 +485,14 @@ class _Ar implements AppStrings {
   String otpCooldown(int seconds) => 'انتظر $seconds ث قبل إعادة الإرسال';
   @override
   String get verifyCodeButton => 'تأكيد الرمز';
+  @override
+  String get verifyEmailSpamHint =>
+      'وصلت الرسالة؟ رائع. إن لم تجدها خلال دقيقة أو دقيقتين، تحقّق من مجلد الرسائل غير المرغوب فيها (Spam) — قد تصل الرسالة هناك أحيانًا، وهذا أمر طبيعي تمامًا.';
+  @override
+  String get openEmailAppButton => 'فتح تطبيق البريد';
+  @override
+  String get openEmailAppFailed =>
+      'لم يتم العثور على تطبيق بريد على هذا الجهاز';
 
   @override
   String get forgotPassword => 'نسيت كلمة المرور؟';
@@ -673,6 +717,22 @@ class _Ar implements AppStrings {
       'إلغاء تصريح «$label»؟ لن يعمل الرابط بعد ذلك.';
   @override
   String get guestRevoked => 'تم إلغاء التصريح';
+  @override
+  String get guestDeleteTitle => 'حذف التصريح';
+  @override
+  String guestDeleteConfirm(String label) =>
+      'حذف تصريح «$label» نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.';
+  @override
+  String get guestDeleted => 'تم حذف التصريح';
+  @override
+  String get guestDeleteAllTitle => 'حذف كل التصاريح';
+  @override
+  String get guestDeleteAllConfirm =>
+      'سيتم حذف جميع التصاريح نهائيًا وستتوقف كل الروابط التي شاركتها. متابعة؟';
+  @override
+  String get guestDeleteAll => 'حذف الكل';
+  @override
+  String get guestAllDeleted => 'تم حذف جميع التصاريح';
   @override
   String get guestLabelLabel => 'اسم الزائر';
   @override
@@ -1011,6 +1071,48 @@ class _Ar implements AppStrings {
   String get ob3Title => 'أمان ببصمتك';
   @override
   String get ob3Body => 'اقفل التطبيق وافتح البوابة ببصمتك لمزيد من الأمان.';
+  @override
+  String get updateRequiredTitle => 'تحديث مطلوب';
+  @override
+  String get updateRequiredBody =>
+      'هذه النسخة لم تعد مدعومة. حمّل التحديث الجديد — سيتم تثبيته فوق النسخة الحالية مباشرةً دون حذف التطبيق أو فقدان بياناتك.';
+  @override
+  String get updateAvailableTitle => 'تحديث جديد متاح';
+  @override
+  String get updateAvailableBody =>
+      'نسخة أحدث من التطبيق متاحة الآن. حمّلها لتحصل على آخر التحسينات.';
+  @override
+  String get updateDownloadButton => 'تحميل التحديث';
+  @override
+  String get updateLaterButton => 'لاحقًا';
+  @override
+  String get updateOpenFailed => 'تعذّر فتح رابط التحديث';
+  @override
+  String get drawerFeaturesSection => 'المميزات';
+  @override
+  String get drawerSettingsSection => 'الإعدادات';
+  @override
+  String get drawerAboutSection => 'حول التطبيق';
+  @override
+  String get drawerHome => 'الرئيسية';
+  @override
+  String get privacyPolicyTitle => 'سياسة الخصوصية';
+  @override
+  String get termsTitle => 'الشروط والأحكام';
+  @override
+  String get aboutDeveloperTitle => 'عن المطور';
+  @override
+  String get developerName => 'أحمد هاشم';
+  @override
+  String get developerRole => 'مطور التطبيق';
+  @override
+  String get aboutContactHint => 'لأي استفسار أو مشكلة، تواصل مباشرةً:';
+  @override
+  String get aboutCallAction => 'اتصال';
+  @override
+  String get aboutEmailAction => 'مراسلة بالبريد';
+  @override
+  String get aboutLaunchFailed => 'تعذّر فتح التطبيق المطلوب';
 }
 
 class _En implements AppStrings {
@@ -1091,6 +1193,13 @@ class _En implements AppStrings {
   String otpCooldown(int seconds) => 'Wait ${seconds}s before resending';
   @override
   String get verifyCodeButton => 'Verify code';
+  @override
+  String get verifyEmailSpamHint =>
+      "Got the email? Great. If it doesn't arrive within a minute or two, check your Spam folder — messages occasionally land there, and that's completely normal.";
+  @override
+  String get openEmailAppButton => 'Open email app';
+  @override
+  String get openEmailAppFailed => 'No email app found on this device';
 
   @override
   String get forgotPassword => 'Forgot password?';
@@ -1315,6 +1424,22 @@ class _En implements AppStrings {
       'Revoke the pass for "$label"? The link will stop working.';
   @override
   String get guestRevoked => 'Pass revoked';
+  @override
+  String get guestDeleteTitle => 'Delete pass';
+  @override
+  String guestDeleteConfirm(String label) =>
+      'Permanently delete the pass for "$label"? This cannot be undone.';
+  @override
+  String get guestDeleted => 'Pass deleted';
+  @override
+  String get guestDeleteAllTitle => 'Delete all passes';
+  @override
+  String get guestDeleteAllConfirm =>
+      'All passes will be permanently deleted and every shared link will stop working. Continue?';
+  @override
+  String get guestDeleteAll => 'Delete all';
+  @override
+  String get guestAllDeleted => 'All passes deleted';
   @override
   String get guestLabelLabel => 'Visitor name';
   @override
@@ -1660,6 +1785,49 @@ class _En implements AppStrings {
   @override
   String get ob3Body =>
       'Lock the app and open the gate with your fingerprint for extra security.';
+  @override
+  String get updateRequiredTitle => 'Update required';
+  @override
+  String get updateRequiredBody =>
+      'This version is no longer supported. Download the update — it installs over the current version without deleting the app or losing your data.';
+  @override
+  String get updateAvailableTitle => 'Update available';
+  @override
+  String get updateAvailableBody =>
+      'A newer version of the app is available. Download it to get the latest improvements.';
+  @override
+  String get updateDownloadButton => 'Download update';
+  @override
+  String get updateLaterButton => 'Later';
+  @override
+  String get updateOpenFailed => 'Could not open the update link';
+  @override
+  String get drawerFeaturesSection => 'Features';
+  @override
+  String get drawerSettingsSection => 'Settings';
+  @override
+  String get drawerAboutSection => 'About';
+  @override
+  String get drawerHome => 'Home';
+  @override
+  String get privacyPolicyTitle => 'Privacy policy';
+  @override
+  String get termsTitle => 'Terms & conditions';
+  @override
+  String get aboutDeveloperTitle => 'About the developer';
+  @override
+  String get developerName => 'Ahmed Hashem';
+  @override
+  String get developerRole => 'App developer';
+  @override
+  String get aboutContactHint =>
+      'For any question or issue, reach out directly:';
+  @override
+  String get aboutCallAction => 'Call';
+  @override
+  String get aboutEmailAction => 'Email';
+  @override
+  String get aboutLaunchFailed => 'Could not open the requested app';
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

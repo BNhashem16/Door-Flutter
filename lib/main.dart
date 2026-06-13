@@ -17,6 +17,7 @@ import './l10n/locale_store.dart';
 import './onboarding/onboarding_screen.dart';
 import './onboarding/onboarding_store.dart';
 import './theme/app_theme.dart';
+import './update/update_gate.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -114,16 +115,20 @@ class _MyAppState extends State<MyApp> {
         onToggle: _toggleLocale,
         child: ConnectivityGate(child: child!),
       ),
-      home: _onboardingDone
-          ? AppLock(
-              authService: _authService,
-              child: AuthGate(
-                onThemeToggle: _toggleTheme,
-                isDarkMode: _isDarkMode,
-                onLocaleToggle: _toggleLocale,
-              ),
-            )
-          : OnboardingScreen(onDone: _finishOnboarding),
+      // UpdateGate sits above onboarding and auth: a build below
+      // /app_config/minBuild is hard-blocked for everyone, logged in or not.
+      home: UpdateGate(
+        child: _onboardingDone
+            ? AppLock(
+                authService: _authService,
+                child: AuthGate(
+                  onThemeToggle: _toggleTheme,
+                  isDarkMode: _isDarkMode,
+                  onLocaleToggle: _toggleLocale,
+                ),
+              )
+            : OnboardingScreen(onDone: _finishOnboarding),
+      ),
     );
   }
 }

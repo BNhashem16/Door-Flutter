@@ -197,11 +197,22 @@ class AuthService {
       email: email.trim(),
       name: name.trim(),
       role: UserRole.user,
-      status: UserStatus.pending,
+      // Auto-approve on signup: the email OTP already proved ownership, so new
+      // residents get access immediately. The admin reviews the user list and
+      // suspends (rejects) anyone who shouldn't be there.
+      status: UserStatus.approved,
       createdAt: DateTime.now().millisecondsSinceEpoch,
     );
     await _userRef(uid).set(profile.toMap());
     await _otp.clear(_regKey(email));
+    // Auto-approve means no admin gesture happens at signup, so alert the
+    // admins to review the new account. The Worker cron fans this out to every
+    // admin. Best-effort: a failed enqueue must never fail registration.
+    try {
+      await enqueuePush(type: 'new_user', targetUid: uid);
+    } catch (_) {
+      // Push is a courtesy; registration already succeeded.
+    }
   }
 
   /// Forgot-password (user is signed OUT): trigger Firebase's built-in
@@ -434,8 +445,9 @@ class AuthService {
   /// Admin: enqueue a push notification for [targetUid]. The Cloudflare Worker
   /// cron drains `/push_outbox` once a minute and sends it via FCM (the app's
   /// receive stack already exists), so it reaches the user even if their app is
-  /// closed. [type] is one of `approved` | `rejected` | `ticket_resolved`; the
-  /// Worker owns the Arabic copy. Admin-only write per the security rules.
+  /// closed. [type] is one of `approved` | `rejected` | `ticket_resolved`
+  /// (admin-only per rules) or `new_user` (any signed-in user, own uid only —
+  /// fans out to all admins); the Worker owns the Arabic copy.
   Future<void> enqueuePush({
     required String type,
     required String targetUid,

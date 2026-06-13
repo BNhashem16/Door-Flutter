@@ -5,7 +5,7 @@
       ".indexOn": ["role"],
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
-        ".write": "auth != null && ((auth.uid === $uid && !data.exists() && newData.child('role').val() === 'user' && newData.child('status').val() === 'pending' && newData.child('emailVerified').val() === false) || (auth.uid === $uid && data.exists() && newData.child('role').val() === data.child('role').val() && newData.child('status').val() === data.child('status').val() && newData.child('email').val() === data.child('email').val() && newData.child('createdAt').val() === data.child('createdAt').val() && (newData.child('emailVerified').isBoolean() || !newData.child('emailVerified').exists())) || (auth.uid === $uid && !newData.exists()) || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && ((auth.uid === $uid && !data.exists() && newData.child('role').val() === 'user' && (newData.child('status').val() === 'approved' || newData.child('status').val() === 'pending') && newData.child('emailVerified').val() === false) || (auth.uid === $uid && data.exists() && newData.child('role').val() === data.child('role').val() && newData.child('status').val() === data.child('status').val() && newData.child('email').val() === data.child('email').val() && newData.child('createdAt').val() === data.child('createdAt').val() && (newData.child('emailVerified').isBoolean() || !newData.child('emailVerified').exists())) || (auth.uid === $uid && !newData.exists()) || root.child('app_users').child(auth.uid).child('role').val() === 'admin')",
         ".validate": "newData.hasChildren(['email', 'name', 'role', 'status', 'createdAt'])"
       }
     },
@@ -53,6 +53,7 @@
       ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
       ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
       "$pushId": {
+        ".write": "auth != null && !data.exists() && newData.child('type').val() === 'new_user' && newData.child('targetUid').val() === auth.uid",
         ".validate": "newData.hasChildren(['type', 'createdAt'])"
       }
     },
@@ -74,6 +75,11 @@
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid"
       }
+    },
+    "app_config": {
+      ".read": true,
+      ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
+      ".validate": "newData.hasChildren(['latestBuild', 'apkUrl'])"
     },
     "audit_logs": {
       ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",

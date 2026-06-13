@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -157,6 +160,25 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
   }
 
+  /// Open the device's default email app (inbox, not compose) so the user can
+  /// find the code without leaving the flow mentally. Android-only intent;
+  /// missing email app → friendly toast instead of a crash.
+  Future<void> _openEmailApp() async {
+    final s = AppStrings.of(context);
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    const intent = AndroidIntent(
+      action: 'android.intent.action.MAIN',
+      category: 'android.intent.category.APP_EMAIL',
+      flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+    );
+    try {
+      await intent.launch();
+    } on Exception {
+      if (!mounted) return;
+      showToast(context, s.openEmailAppFailed);
+    }
+  }
+
   Future<void> _resend() async {
     if (_cooldown > 0) return;
     final locale = Localizations.localeOf(context).languageCode;
@@ -258,7 +280,42 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                             : s.verifyEmailResendIn(_cooldown)),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: _openEmailApp,
+                        icon: const Icon(Icons.mail_outline),
+                        label: Text(s.openEmailAppButton),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline,
+                              size: 20, color: theme.colorScheme.primary),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              s.verifyEmailSpamHint,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(height: 1.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     TextButton.icon(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back),

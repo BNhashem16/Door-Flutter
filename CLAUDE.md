@@ -51,10 +51,18 @@ lib/
 ├── support/                  # report-an-issue: SupportTicket(+reply) · SupportService · report sheet · admin inbox · my_reports_screen
 ├── onboarding/               # first-launch Arabic walkthrough (OnboardingScreen + OnboardingStore flag)
 ├── logs/                     # gate_log.dart (GateLog/GateSource) · logs_screen.dart
+├── update/                   # in-app update gate: UpdateInfo · UpdateService (/app_config) · UpdateGate · ForceUpdateScreen
+├── about/                    # legal_content (AR/EN copy) · legal_screen (privacy + terms) · about_developer_screen
 ├── theme/app_theme.dart      # AppTheme.light/dark + AppColors ThemeExtension, AppSpacing, AppRadius
-├── widgets/                  # initials_avatar · status_badge · section_card (shared design system)
+├── widgets/                  # initials_avatar · status_badge · section_card · app_drawer (sidebar nav hub)
 └── toast/toast_service.dart  # fluttertoast wrapper
 ```
+
+**Navigation hub:** `AppDrawer` (`widgets/app_drawer.dart`, mounted as `drawer:` on the gate
+screen) is the single entry point to all features: profile, guest passes, notifications +
+prefs, report issue / my reports, admin panel, theme & language toggles, privacy policy,
+terms, about-developer, and sign-out. The gate app-bar keeps only the `NotificationBell`.
+Long-form legal copy lives in `about/legal_content.dart` (AR/EN), rendered by `LegalScreen`.
 
 **Service-layer exceptions:** widgets normally write through `AuthService`. Dedicated
 service wrappers may talk to RTDB directly: `GateService` (gate node), `GuestService`
@@ -101,6 +109,14 @@ The gate screen streams `/ring_request`; a fresh pending ring prompts the reside
 `prefAllows` skips non-critical pushes (`guest`/`broadcast`/`ring`) the user disabled;
 `approved`/`rejected`/`ticket_resolved` always send. UI: `NotificationPrefsScreen` (profile).
 
+**In-app update gate:** `UpdateGate` (wraps `home` in `main.dart`, above onboarding/auth)
+streams `/app_config` (`{latestBuild, minBuild, apkUrl, notes?}`, world-readable, admin-write).
+Install build < `minBuild` → blocking `ForceUpdateScreen`; < `latestBuild` → one dismissible
+dialog per launch. Download opens `apkUrl` externally; Android installs the APK in place (same
+package + signing key + higher versionCode — no uninstall, data kept). Missing node → fail open.
+**Release flow:** bump `version: x.y.z+N` in pubspec, build/sign with the SAME key, upload APK,
+then set `/app_config` `latestBuild=N` (+ `minBuild=N` to force) and `apkUrl`.
+
 **Self-service account delete:** `AuthService.deleteOwnAccount(password)` reauthenticates, nulls
 all own RTDB nodes in one multi-path update, then deletes the Auth user. Needs the owner
 self-delete clause in the `/app_users/{uid}` write rule (`auth.uid===$uid && !newData.exists()`).
@@ -133,15 +149,18 @@ skipped when no biometrics are enrolled so it can't lock the user out). Toggle i
 ### Security rules (`database.rules.json`) — respect these when changing writes
 
 - Read `/app_users`: admin only. Read `/app_users/$uid`: owner or admin.
-- Owner self-write is constrained: on create must be `role=user`, `status=pending`; on update
+- Owner self-write is constrained: on create must be `role=user`, `status=approved|pending`
+  (auto-approve policy — admin moderates after the fact); on update
   CANNOT change `role`, `status`, `email`, `createdAt`. Only admin can change those.
 - So profile edits must touch only `name`/`apartment`/`bio` (see `updateProfile`). Do not add
   client writes to protected fields — the rules will reject them.
 
 ## Approval flow
 
-register → profile `status=pending` → admin approves in `admin_screen` → `status=approved` →
-user reaches gate control screen. Routing handled entirely in `auth_gate.dart` via streams.
+register (email OTP verified) → profile created with `status=approved` (**auto-approve**) →
+user reaches gate control screen immediately. The admin reviews the user list afterwards and
+can suspend (`rejected`) or re-pend anyone. `pending` still exists as an admin-set state and
+routes to the pending screen. Routing handled entirely in `auth_gate.dart` via streams.
 
 ## Conventions in this codebase
 

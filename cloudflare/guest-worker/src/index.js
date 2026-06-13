@@ -471,7 +471,12 @@ async function persistNotification(accessToken, uid, type, title, body) {
 
 // Critical notifications always send; everything else honors the user's
 // per-type opt-out at /notification_prefs/{uid}/{type} (missing/true = allowed).
-const _ALWAYS_SEND = new Set(['approved', 'rejected', 'ticket_resolved']);
+const _ALWAYS_SEND = new Set([
+  'approved',
+  'rejected',
+  'ticket_resolved',
+  'new_user',
+]);
 
 async function prefAllows(accessToken, uid, type) {
   if (_ALWAYS_SEND.has(type)) return true;
@@ -536,9 +541,21 @@ async function approvedUids(accessToken) {
     .map(([uid]) => uid);
 }
 
-// Drain /push_outbox, then delete each entry. Two shapes:
+// All admins' uids — audience for moderation alerts (e.g. new_user).
+async function adminUids(accessToken) {
+  const res = await dbFetch('app_users', accessToken);
+  if (!res.ok) return [];
+  const users = await res.json();
+  if (!users || typeof users !== 'object') return [];
+  return Object.entries(users)
+    .filter(([, u]) => u && typeof u === 'object' && u.role === 'admin')
+    .map(([uid]) => uid);
+}
+
+// Drain /push_outbox, then delete each entry. Three shapes:
 //  - typed  { type, targetUid }     → Worker-owned Arabic copy → one recipient
 //  - broadcast { type:'broadcast', title, body } → admin copy → all residents
+//  - new_user { type:'new_user', targetUid:newUid } → alert every admin
 // Entries are removed after a single attempt to avoid an unbounded retry storm.
 async function drainPushOutbox(env, accessToken) {
   const res = await dbFetch('push_outbox', accessToken);
@@ -558,6 +575,27 @@ async function drainPushOutbox(env, accessToken) {
             item.title,
             item.body || '',
             'broadcast',
+          );
+        }
+      } else if (item.type === 'new_user' && item.targetUid) {
+        // Auto-approved self-registration → every admin gets a review alert.
+        // targetUid is the NEW user here (sender), not the recipient.
+        const profRes = await dbFetch(
+          `app_users/${item.targetUid}`,
+          accessToken,
+        );
+        const prof = profRes.ok ? await profRes.json() : null;
+        const name = (prof && prof.name) || 'مستخدم جديد';
+        const email = (prof && prof.email) || '';
+        const admins = await adminUids(accessToken);
+        for (const uid of admins) {
+          await pushToUser(
+            env,
+            accessToken,
+            uid,
+            'مستخدم جديد سجّل في التطبيق',
+            `${name}${email ? ` (${email})` : ''} — راجع الحساب من شاشة الإدارة.`,
+            'new_user',
           );
         }
       } else if (item.targetUid) {

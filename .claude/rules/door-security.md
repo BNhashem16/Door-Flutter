@@ -10,8 +10,9 @@ not attempt writes the rules reject.
 - **Owner must NOT write** `role`, `status`, `email`, `createdAt` on update — rules reject the
   entire update if these differ from stored values.
 - `role`/`status` changes are **admin-only** (admin path in rules).
-- On owner **create**: must be `role=user`, `status=pending`. Don't let a client self-register
-  as admin or pre-approved.
+- On owner **create**: must be `role=user`, `status=approved` or `pending` (auto-approve
+  policy: OTP-verified signups go straight to `approved`; admin moderates after the fact).
+  Don't let a client self-register as admin.
 - Reads: whole `/app_users` list is admin-only; a single `/app_users/$uid` is owner-or-admin.
 
 ## Single-device session

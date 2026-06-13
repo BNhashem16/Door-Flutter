@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
-import '../admin/admin_screen.dart';
 import '../auth/auth_service.dart';
 import '../auth/biometric_service.dart';
 import '../gate/gate_service.dart';
@@ -11,9 +10,8 @@ import '../guest/guest_passes_screen.dart';
 import '../l10n/app_strings.dart';
 import '../logs/gate_log.dart';
 import '../notifications/notification_bell.dart';
-import '../profile/profile_screen.dart';
 import '../theme/app_theme.dart';
-import '../widgets/initials_avatar.dart';
+import '../widgets/app_drawer.dart';
 import '../widgets/section_card.dart';
 
 /// Connection state of the live gate stream (locale-independent).
@@ -356,57 +354,19 @@ class _FirebaseUpdateScreenState extends State<FirebaseUpdateScreen> {
     final s = AppStrings.of(context);
 
     return Scaffold(
+      drawer: AppDrawer(
+        authService: widget.authService,
+        isAdmin: widget.isAdmin,
+        userName: widget.userName,
+        isDarkMode: widget.isDarkMode,
+        onThemeToggle: widget.onThemeToggle,
+        onLocaleToggle: widget.onLocaleToggle,
+      ),
       appBar: AppBar(
         title: Text(s.gateTitle),
-        leading: Padding(
-          padding: const EdgeInsetsDirectional.only(start: AppSpacing.sm),
-          child: IconButton(
-            tooltip: s.profileTooltip,
-            icon: InitialsAvatar(
-              name: widget.userName,
-              seed: widget.authService.currentUser?.uid ?? '',
-              size: 34,
-            ),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProfileScreen(authService: widget.authService),
-              ),
-            ),
-          ),
-        ),
         actions: [
           if (widget.authService.currentUser?.uid != null)
             NotificationBell(uid: widget.authService.currentUser!.uid),
-          if (widget.isAdmin)
-            IconButton(
-              icon: const Icon(Icons.admin_panel_settings),
-              tooltip: s.adminTitle,
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => AdminScreen(
-                    authService: widget.authService,
-                    adminName: widget.userName,
-                  ),
-                ),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.translate),
-            onPressed: widget.onLocaleToggle,
-            tooltip: s.languageToggleTooltip,
-          ),
-          IconButton(
-            icon: Icon(
-              widget.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-            ),
-            onPressed: widget.onThemeToggle,
-            tooltip: widget.isDarkMode ? s.lightMode : s.darkMode,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: s.signOut,
-            onPressed: widget.authService.signOut,
-          ),
         ],
       ),
       body: SafeArea(

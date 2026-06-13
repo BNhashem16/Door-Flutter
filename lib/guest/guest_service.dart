@@ -151,4 +151,8 @@ class GuestService {
   /// Permanently remove a pass row.
   Future<void> delete(String ownerUid, String passId) =>
       _ownerRef(ownerUid).child(passId).remove();
+
+  /// Permanently remove ALL of [ownerUid]'s passes in one write. Every shared
+  /// link stops working immediately (the Worker finds no pass row).
+  Future<void> deleteAll(String ownerUid) => _ownerRef(ownerUid).remove();
 }
