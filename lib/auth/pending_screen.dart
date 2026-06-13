@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
+import '../theme/app_theme.dart';
+import '../toast/toast_service.dart';
 import '../widgets/language_toggle_button.dart';
 import 'auth_service.dart';
 
-/// Shown to authenticated users whose account is not yet approved
-/// (pending) or has been rejected by an admin.
-class PendingScreen extends StatelessWidget {
+/// Shown to authenticated users whose account is not yet approved.
+///
+/// `rejected` users see a terminal message. `pending` users get an access-code
+/// redeem form: enter the admin-issued code → Worker flips status to approved →
+/// [AuthGate]'s profile stream routes onward automatically.
+class PendingScreen extends StatefulWidget {
   const PendingScreen({
     super.key,
     required this.authService,
@@ -17,9 +22,69 @@ class PendingScreen extends StatelessWidget {
   final bool rejected;
 
   @override
+  State<PendingScreen> createState() => _PendingScreenState();
+}
+
+class _PendingScreenState extends State<PendingScreen> {
+  final _codeCtrl = TextEditingController();
+  bool _redeeming = false;
+  bool _requesting = false;
+
+  @override
+  void dispose() {
+    _codeCtrl.dispose();
+    super.dispose();
+  }
+
+  String _errorText(AppStrings s, AccessRedeemResult r) => switch (r) {
+        AccessRedeemResult.expired => s.codeExpired,
+        AccessRedeemResult.used => s.codeUsed,
+        AccessRedeemResult.networkError => s.codeNetworkError,
+        AccessRedeemResult.notPending ||
+        AccessRedeemResult.invalid =>
+          s.codeInvalid,
+        AccessRedeemResult.ok => '',
+      };
+
+  Future<void> _redeem() async {
+    final s = AppStrings.of(context);
+    final uid = widget.authService.currentUser?.uid;
+    final code = _codeCtrl.text.trim();
+    if (uid == null || code.isEmpty) return;
+    setState(() => _redeeming = true);
+    try {
+      final result =
+          await widget.authService.redeemAccessCode(uid: uid, code: code);
+      if (!mounted) return;
+      // On success the AuthGate stream routes away; just toast on failure.
+      if (result != AccessRedeemResult.ok) {
+        showToast(context, _errorText(s, result));
+      }
+    } finally {
+      if (mounted) setState(() => _redeeming = false);
+    }
+  }
+
+  Future<void> _requestCode() async {
+    final s = AppStrings.of(context);
+    setState(() => _requesting = true);
+    try {
+      await widget.authService.requestAccessCode();
+      if (!mounted) return;
+      showToast(context, s.codeRequested);
+    } on Exception {
+      if (!mounted) return;
+      showToast(context, s.codeRequestError);
+    } finally {
+      if (mounted) setState(() => _requesting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = AppStrings.of(context);
+    final rejected = widget.rejected;
     final icon = rejected ? Icons.block : Icons.hourglass_top;
     final color = rejected ? Colors.red : Colors.orange;
     final title = rejected ? s.rejectedTitle : s.pendingTitle;
@@ -30,21 +95,58 @@ class PendingScreen extends StatelessWidget {
         child: Stack(
           children: [
             Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.xl),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(icon, size: 96, color: color),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.lg),
                     Text(title,
                         style: theme.textTheme.titleLarge
                             ?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(body, textAlign: TextAlign.center),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: AppSpacing.xl),
+                    if (!rejected) ...[
+                      TextField(
+                        controller: _codeCtrl,
+                        textAlign: TextAlign.center,
+                        textDirection: TextDirection.ltr,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        maxLength: 8,
+                        decoration: InputDecoration(
+                          labelText: s.accessCodeLabel,
+                          counterText: '',
+                          prefixIcon: const Icon(Icons.vpn_key_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      SizedBox(
+                        height: 52,
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _redeeming ? null : _redeem,
+                          child: _redeeming
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text(s.activateCodeButton),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextButton(
+                        onPressed: _requesting ? null : _requestCode,
+                        child: Text(s.requestCodeButton),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
                     OutlinedButton.icon(
-                      onPressed: authService.signOut,
+                      onPressed: widget.authService.signOut,
                       icon: const Icon(Icons.logout),
                       label: Text(s.signOut),
                     ),
