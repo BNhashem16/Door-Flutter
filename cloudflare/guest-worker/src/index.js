@@ -820,8 +820,12 @@ async function scanGateActivity(env, accessToken) {
     const admins = await adminUids(accessToken);
     for (const { actorUid, log } of batch) {
       const [title, body] = gateActivityCopy(log);
+      // A guest open is the guest's action, logged under the host's uid — alert
+      // every admin (incl. the host-admin). Only skip self for the admin's own
+      // manual open (app/widget), so they're not alerted about their own tap.
+      const skipActor = log && log.source !== 'guest';
       for (const uid of admins) {
-        if (uid === actorUid) continue; // don't self-alert the actor
+        if (skipActor && uid === actorUid) continue;
         await pushToUser(env, accessToken, uid, title, body, 'gate_activity');
       }
     }
