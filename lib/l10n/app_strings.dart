@@ -198,6 +198,11 @@ abstract class AppStrings {
   String get myLogsButton;
   String get allLogsTooltip;
 
+  // Admin gate-activity monitor toggle
+  String get gateAlertsTitle;
+  String get gateAlertsSubtitle;
+  String get gateAlertsError;
+
   // Guest passes
   String get guestPassesTitle;
   String get guestPassesSubtitle;
@@ -811,6 +816,14 @@ class _Ar implements AppStrings {
   String get myLogsButton => 'سجل وصولي';
   @override
   String get allLogsTooltip => 'سجل وصول الجميع';
+
+  @override
+  String get gateAlertsTitle => 'مراقبة البوابة';
+  @override
+  String get gateAlertsSubtitle =>
+      'إشعار لكل المسؤولين عند كل فتح أو إغلاق للباب';
+  @override
+  String get gateAlertsError => 'تعذّر تحديث إعداد المراقبة';
 
   @override
   String get guestPassesTitle => 'تصاريح الزوار';
@@ -1657,6 +1670,14 @@ class _En implements AppStrings {
   String get myLogsButton => 'My access log';
   @override
   String get allLogsTooltip => 'All access logs';
+
+  @override
+  String get gateAlertsTitle => 'Gate monitoring';
+  @override
+  String get gateAlertsSubtitle =>
+      'Alert every admin on each gate open or close';
+  @override
+  String get gateAlertsError => 'Could not update monitoring setting';
 
   @override
   String get guestPassesTitle => 'Guest passes';

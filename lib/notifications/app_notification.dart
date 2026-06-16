@@ -45,6 +45,7 @@ class AppNotification {
         'guest' => Icons.qr_code_2_rounded,
         'broadcast' => Icons.campaign_rounded,
         'ring' => Icons.notifications_active_rounded,
+        'gate_activity' => Icons.meeting_room_rounded,
         _ => Icons.notifications_rounded,
       };
 }

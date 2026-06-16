@@ -725,6 +725,100 @@ async function drainPushOutbox(env, accessToken) {
   }
 }
 
+// --- Admin gate-activity monitor ---------------------------------------------
+// When the admin enables /app_config/gateAlerts, every gate open/close (any
+// source: app, widget, guest) pushes every admin a clear Arabic alert. The cron
+// scans /gate_logs since a cursor so it catches all sources with no client
+// change. The acting admin is not alerted about their own action.
+
+const _GATE_SOURCE_AR = {
+  app: 'عبر التطبيق',
+  widget: 'عبر الأداة',
+  guest: 'تصريح ضيف',
+};
+
+// Build the Arabic [title, body] for one gate log row.
+function gateActivityCopy(log) {
+  const name = (log && log.name ? String(log.name) : '').trim() || 'مستخدم';
+  const opened = log && log.action === 'open';
+  const src = log ? _GATE_SOURCE_AR[log.source] : undefined;
+  const tail = src ? ` • ${src}` : '';
+  return opened
+    ? ['🚪 تم فتح البوابة', `${name} فتح البوابة${tail}`]
+    : ['🔒 تم إغلاق البوابة', `${name} أغلق البوابة${tail}`];
+}
+
+async function readGateCursor(accessToken) {
+  const res = await dbFetch('gate_alert_cursor', accessToken);
+  if (!res.ok) return null;
+  const v = await res.json();
+  return typeof v === 'number' ? v : null;
+}
+
+async function setGateCursor(accessToken, value) {
+  await dbFetch('gate_alert_cursor', accessToken, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  }).catch(() => {});
+}
+
+async function scanGateActivity(env, accessToken) {
+  try {
+    const cfgRes = await dbFetch('app_config/gateAlerts', accessToken);
+    const enabled = cfgRes.ok ? (await cfgRes.json()) === true : false;
+    const now = Date.now();
+
+    // Disabled → keep the cursor at ~now so re-enabling never replays history.
+    if (!enabled) {
+      await setGateCursor(accessToken, now);
+      return;
+    }
+
+    const cursor = await readGateCursor(accessToken);
+    // First enable (no cursor) → start fresh from now, don't blast old logs.
+    if (cursor === null) {
+      await setGateCursor(accessToken, now);
+      return;
+    }
+
+    const logsRes = await dbFetch('gate_logs', accessToken);
+    if (!logsRes.ok) return;
+    const byUser = await logsRes.json();
+    if (!byUser || typeof byUser !== 'object') return;
+
+    // Flatten to {actorUid, log}, keep rows newer than the cursor, sort ascending.
+    const fresh = [];
+    for (const [actorUid, rows] of Object.entries(byUser)) {
+      if (!rows || typeof rows !== 'object') continue;
+      for (const log of Object.values(rows)) {
+        if (!log || typeof log !== 'object') continue;
+        const ts = typeof log.timestamp === 'number' ? log.timestamp : 0;
+        if (ts > cursor) fresh.push({ actorUid, log, ts });
+      }
+    }
+    if (fresh.length === 0) return;
+
+    fresh.sort((a, b) => a.ts - b.ts);
+    // Bound a burst; still advance the cursor past everything seen this tick.
+    const maxTs = fresh[fresh.length - 1].ts;
+    const batch = fresh.slice(-50);
+
+    const admins = await adminUids(accessToken);
+    for (const { actorUid, log } of batch) {
+      const [title, body] = gateActivityCopy(log);
+      for (const uid of admins) {
+        if (uid === actorUid) continue; // don't self-alert the actor
+        await pushToUser(env, accessToken, uid, title, body, 'gate_activity');
+      }
+    }
+
+    await setGateCursor(accessToken, maxTs);
+  } catch (_) {
+    // best-effort: a monitoring failure must never break the cron.
+  }
+}
+
 // --- Doorbell (ring a resident) ----------------------------------------------
 // A static QR at the gate points at `/ring`. A visitor with no pass taps the
 // button; the Worker pushes every approved resident and records a single
@@ -798,6 +892,7 @@ export default {
       return;
     }
     await drainPushOutbox(env, token);
+    await scanGateActivity(env, token);
   },
 
   async fetch(request, env) {

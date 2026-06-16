@@ -538,6 +538,25 @@ class AuthService {
     });
   }
 
+  // --- Admin gate-activity monitor (/app_config/gateAlerts) ---
+
+  /// Live on/off state of the admin gate-activity monitor. Reads
+  /// `/app_config/gateAlerts` (world-readable); defaults to `false` when the
+  /// key is missing or not a bool.
+  Stream<bool> watchGateAlerts() {
+    return _db.ref('app_config/gateAlerts').onValue.map(
+          (event) => event.snapshot.value == true,
+        );
+  }
+
+  /// Admin: flip the gate-activity monitor. Writes the child key only — the
+  /// `/app_config` `.validate` (hasChildren latestBuild/apkUrl) does not cascade
+  /// to a child write, so this needs no rule change. The Worker cron reads this
+  /// each tick and alerts every admin on each gate open/close while enabled.
+  Future<void> setGateAlerts(bool enabled) {
+    return _db.ref('app_config').update({'gateAlerts': enabled});
+  }
+
   // --- Admin audit log (/audit_logs/{id}) ---
 
   /// Admin: append an audit entry for an admin action. [action] is a stable key

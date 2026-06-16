@@ -5,6 +5,9 @@ import '../auth/auth_service.dart';
 import '../l10n/app_strings.dart';
 import '../support/admin_support_screen.dart';
 import '../logs/logs_screen.dart';
+import '../theme/app_theme.dart';
+import '../toast/toast_service.dart';
+import '../widgets/section_card.dart';
 import 'admin_directory_tab.dart';
 import 'admin_users_tab.dart';
 import 'announcement_compose_sheet.dart';
@@ -93,29 +96,80 @@ class AdminScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: StreamBuilder<List<AppUser>>(
-          stream: authService.watchAllUsers(),
+        body: Column(
+          children: [
+            _gateAlertsToggle(context),
+            Expanded(
+              child: StreamBuilder<List<AppUser>>(
+                stream: authService.watchAllUsers(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text(s.loadUsersError));
+                  }
+                  final users = snapshot.data ?? const <AppUser>[];
+                  return TabBarView(
+                    children: [
+                      AdminUsersTab(
+                        authService: authService,
+                        adminName: adminName,
+                        users: users,
+                      ),
+                      AdminDirectoryTab(
+                        authService: authService,
+                        adminName: adminName,
+                        users: users,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Master on/off for the gate-activity monitor. Bound live to
+  /// `/app_config/gateAlerts`; while on, the Worker cron pushes every admin on
+  /// each gate open/close (excluding the actor's own action).
+  Widget _gateAlertsToggle(BuildContext context) {
+    final s = AppStrings.of(context);
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+      child: SectionCard(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        child: StreamBuilder<bool>(
+          stream: authService.watchGateAlerts(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text(s.loadUsersError));
-            }
-            final users = snapshot.data ?? const <AppUser>[];
-            return TabBarView(
-              children: [
-                AdminUsersTab(
-                  authService: authService,
-                  adminName: adminName,
-                  users: users,
-                ),
-                AdminDirectoryTab(
-                  authService: authService,
-                  adminName: adminName,
-                  users: users,
-                ),
-              ],
+            final enabled = snapshot.data ?? false;
+            return SwitchListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              secondary: Icon(
+                enabled
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_off_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(s.gateAlertsTitle, style: theme.textTheme.titleMedium),
+              subtitle: Text(s.gateAlertsSubtitle,
+                  style: theme.textTheme.labelMedium),
+              value: enabled,
+              onChanged: (next) async {
+                try {
+                  await authService.setGateAlerts(next);
+                } catch (_) {
+                  if (!context.mounted) return;
+                  showToast(context, s.gateAlertsError);
+                }
+              },
             );
           },
         ),
