@@ -34,6 +34,12 @@ const GUEST_ACCENT = '2563eb'; // app blue
 const GUEST_SUCCESS = '059669';
 const GUEST_DANGER = 'dc2626';
 
+// Epoch ms sentinel for a permanent (no-time-limit) pass — mirrors
+// GuestPass.neverExpires in the app. Stored as expiresAt so the existing
+// `now > expiresAt` check treats it as never expiring; only the rendered copy
+// special-cases it.
+const NEVER_EXPIRES = 4102444800000;
+
 // --- Service-account OAuth2 (RS256 JWT → access token) -----------------------
 // Cached at module scope; survives across requests within a warm isolate.
 let _cachedToken = null; // { token, exp } (exp in epoch seconds)
@@ -174,6 +180,7 @@ function isValidGuestToken(token) {
 function guestInvalidReason(pass, now) {
   if (!pass || typeof pass !== 'object') return 'not_found';
   if (pass.status === 'revoked') return 'revoked';
+  if (pass.status === 'paused') return 'paused';
   if (typeof pass.expiresAt !== 'number' || now > pass.expiresAt) {
     return 'expired';
   }
@@ -279,7 +286,9 @@ function renderGuestValid(u, c, pass) {
   const validityLine =
     pass.recurring === true
       ? `<div class="meta">يتكرر حتى <b>${escapeHtml(formatGuestExpiry(pass.expiresAt))}</b></div>`
-      : `<div class="meta">صالح حتى <b>${escapeHtml(formatGuestExpiry(pass.expiresAt))}</b></div>`;
+      : (pass.expiresAt || 0) >= NEVER_EXPIRES
+        ? `<div class="meta">المدة: <b>بدون مدة</b></div>`
+        : `<div class="meta">صالح حتى <b>${escapeHtml(formatGuestExpiry(pass.expiresAt))}</b></div>`;
   const body = `
     <div class="badge">🔓</div>
     <h1>دعوة لفتح البوابة</h1>
@@ -301,6 +310,10 @@ function renderGuestInvalid(reason) {
     not_found: ['تصريح غير موجود', 'هذا الرابط غير صحيح أو تم حذفه.'],
     expired: ['انتهت صلاحية التصريح', 'انتهت مدة هذا التصريح.'],
     revoked: ['تم إلغاء التصريح', 'ألغى المُضيف هذا التصريح.'],
+    paused: [
+      'التصريح موقوف مؤقتًا',
+      'أوقف المُضيف هذا التصريح مؤقتًا. حاول لاحقًا أو تواصل معه.',
+    ],
     used_up: ['تم استخدام التصريح', 'تم استخدام هذا التصريح بالكامل.'],
     closed_now: [
       'خارج وقت التصريح',

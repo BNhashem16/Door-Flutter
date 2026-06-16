@@ -6,7 +6,7 @@ import 'guest_pass.dart';
 import 'guest_service.dart';
 
 /// Which preset duration the resident picked.
-enum _DurChoice { h1, h3, tonight, custom }
+enum _DurChoice { h1, h3, tonight, custom, permanent }
 
 /// Bottom sheet to create a guest pass: visitor label + duration + max opens.
 /// Creates the pass via [GuestService] and pops the created [GuestPass] so the
@@ -84,6 +84,10 @@ class _CreateGuestPassSheetState extends State<CreateGuestPassSheet> {
         return end.difference(now);
       case _DurChoice.custom:
         return Duration(hours: _customHours);
+      case _DurChoice.permanent:
+        // Permanent pass has no time window; callers branch on this before
+        // calling _resolveDuration, so this value is never used.
+        return Duration.zero;
     }
   }
 
@@ -119,7 +123,7 @@ class _CreateGuestPassSheetState extends State<CreateGuestPassSheet> {
               ownerUid: widget.ownerUid,
               createdByName: widget.createdByName,
               label: _labelController.text,
-              validFor: _resolveDuration(),
+              validFor: _dur == _DurChoice.permanent ? null : _resolveDuration(),
               maxUses: _maxUses,
             );
       if (!mounted) return;
@@ -189,6 +193,8 @@ class _CreateGuestPassSheetState extends State<CreateGuestPassSheet> {
                         () => setState(() => _dur = _DurChoice.tonight)),
                     _choice(s.guestDurCustom, _dur == _DurChoice.custom,
                         () => setState(() => _dur = _DurChoice.custom)),
+                    _choice(s.guestDurPermanent, _dur == _DurChoice.permanent,
+                        () => setState(() => _dur = _DurChoice.permanent)),
                   ],
                 ),
                 if (_dur == _DurChoice.custom) ...[

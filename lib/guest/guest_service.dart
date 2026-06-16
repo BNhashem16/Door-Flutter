@@ -52,13 +52,15 @@ class GuestService {
       '$_redeemBase?u=$ownerUid&c=$token';
 
   /// Create a one-shot pass for [ownerUid]. [validFor] sets the window from
-  /// now; [maxUses] `0` ⇒ unlimited within the window. Returns the stored
-  /// [GuestPass] (with its token) so the caller can show the share view.
+  /// now; pass `null` for a permanent (no-time-limit) pass that only pause /
+  /// revoke / uses can gate. [maxUses] `0` ⇒ unlimited within the window.
+  /// Returns the stored [GuestPass] (with its token) so the caller can show the
+  /// share view.
   Future<GuestPass> createPass({
     required String ownerUid,
     required String createdByName,
     required String label,
-    required Duration validFor,
+    required Duration? validFor,
     required int maxUses,
   }) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -67,7 +69,8 @@ class GuestService {
       createdByName: createdByName,
       label: label,
       createdAt: now,
-      expiresAt: now + validFor.inMilliseconds,
+      expiresAt:
+          validFor == null ? GuestPass.neverExpires : now + validFor.inMilliseconds,
       maxUses: maxUses,
       schedule: null,
     );
@@ -143,10 +146,23 @@ class GuestService {
     });
   }
 
-  /// Revoke a pass (owner write). Flips `status` to `revoked`; the function
-  /// then refuses redemption. Kept instead of delete so the row stays auditable.
+  /// Revoke a pass (owner write). Flips `status` to `revoked`; the Worker then
+  /// refuses redemption. Permanent — kept instead of delete so the row stays
+  /// auditable. For a reversible stop use [pause].
   Future<void> revoke(String ownerUid, String passId) =>
       _ownerRef(ownerUid).child(passId).update({'status': 'revoked'});
+
+  /// Temporarily disable a pass (owner write). Flips `status` to `paused`; the
+  /// Worker refuses redemption while paused. Reversible via [resume]. Only the
+  /// `status` child is written, so the `.validate` (required children still
+  /// present) is unaffected — same safe pattern as [revoke].
+  Future<void> pause(String ownerUid, String passId) =>
+      _ownerRef(ownerUid).child(passId).update({'status': 'paused'});
+
+  /// Re-enable a paused pass (owner write). Flips `status` back to `active`; the
+  /// shared link works again immediately.
+  Future<void> resume(String ownerUid, String passId) =>
+      _ownerRef(ownerUid).child(passId).update({'status': 'active'});
 
   /// Permanently remove a pass row.
   Future<void> delete(String ownerUid, String passId) =>

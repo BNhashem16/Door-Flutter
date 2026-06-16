@@ -213,8 +213,10 @@ abstract class AppStrings {
   String get guestStatusActive;
   String get guestStatusExpired;
   String get guestStatusRevoked;
+  String get guestStatusPaused;
   String get guestStatusUsedUp;
   String guestValidUntil(String when);
+  String get guestNoExpiry;
   String get guestUsesUnlimited;
   String guestUsesLeft(int n);
   String get guestShare;
@@ -225,6 +227,10 @@ abstract class AppStrings {
   String get guestRevokeTitle;
   String guestRevokeConfirm(String label);
   String get guestRevoked;
+  String get guestPause;
+  String get guestResume;
+  String get guestPaused;
+  String get guestResumed;
   String get guestDeleteTitle;
   String guestDeleteConfirm(String label);
   String get guestDeleted;
@@ -241,6 +247,7 @@ abstract class AppStrings {
   String get guestDur3h;
   String get guestDurTonight;
   String get guestDurCustom;
+  String get guestDurPermanent;
   String guestHours(int n);
   String get guestCustomHoursLabel;
   String get guestMaxUsesLabel;
@@ -844,9 +851,13 @@ class _Ar implements AppStrings {
   @override
   String get guestStatusRevoked => 'ملغى';
   @override
+  String get guestStatusPaused => 'موقوف';
+  @override
   String get guestStatusUsedUp => 'مُستخدم';
   @override
   String guestValidUntil(String when) => 'صالح حتى $when';
+  @override
+  String get guestNoExpiry => 'بدون مدة';
   @override
   String get guestUsesUnlimited => 'فتح غير محدود';
   @override
@@ -868,6 +879,14 @@ class _Ar implements AppStrings {
       'إلغاء تصريح «$label»؟ لن يعمل الرابط بعد ذلك.';
   @override
   String get guestRevoked => 'تم إلغاء التصريح';
+  @override
+  String get guestPause => 'إيقاف مؤقت';
+  @override
+  String get guestResume => 'تشغيل';
+  @override
+  String get guestPaused => 'تم إيقاف التصريح';
+  @override
+  String get guestResumed => 'تم تشغيل التصريح';
   @override
   String get guestDeleteTitle => 'حذف التصريح';
   @override
@@ -900,6 +919,8 @@ class _Ar implements AppStrings {
   String get guestDurTonight => 'حتى الليل';
   @override
   String get guestDurCustom => 'مخصص';
+  @override
+  String get guestDurPermanent => 'دائم';
   @override
   String guestHours(int n) => '$n ساعة';
   @override
@@ -1698,9 +1719,13 @@ class _En implements AppStrings {
   @override
   String get guestStatusRevoked => 'Revoked';
   @override
+  String get guestStatusPaused => 'Paused';
+  @override
   String get guestStatusUsedUp => 'Used up';
   @override
   String guestValidUntil(String when) => 'Valid until $when';
+  @override
+  String get guestNoExpiry => 'No time limit';
   @override
   String get guestUsesUnlimited => 'Unlimited opens';
   @override
@@ -1722,6 +1747,14 @@ class _En implements AppStrings {
       'Revoke the pass for "$label"? The link will stop working.';
   @override
   String get guestRevoked => 'Pass revoked';
+  @override
+  String get guestPause => 'Pause';
+  @override
+  String get guestResume => 'Resume';
+  @override
+  String get guestPaused => 'Pass paused';
+  @override
+  String get guestResumed => 'Pass resumed';
   @override
   String get guestDeleteTitle => 'Delete pass';
   @override
@@ -1754,6 +1787,8 @@ class _En implements AppStrings {
   String get guestDurTonight => 'Until tonight';
   @override
   String get guestDurCustom => 'Custom';
+  @override
+  String get guestDurPermanent => 'Permanent';
   @override
   String guestHours(int n) => '${n}h';
   @override

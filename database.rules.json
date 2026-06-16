@@ -79,7 +79,11 @@
     "app_config": {
       ".read": true,
       ".write": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",
-      ".validate": "newData.hasChildren(['latestBuild', 'apkUrl'])"
+      "latestBuild": { ".validate": "newData.isNumber()" },
+      "minBuild": { ".validate": "newData.isNumber()" },
+      "apkUrl": { ".validate": "newData.isString()" },
+      "notes": { ".validate": "newData.isString()" },
+      "gateAlerts": { ".validate": "newData.isBoolean()" }
     },
     "audit_logs": {
       ".read": "auth != null && root.child('app_users').child(auth.uid).child('role').val() === 'admin'",

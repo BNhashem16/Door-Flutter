@@ -4,8 +4,8 @@ import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import 'guest_pass.dart';
 
-/// Pill rendering a [GuestPass]'s derived state. Precedence mirrors the Cloud
-/// Function: revoked → expired → used-up → active.
+/// Pill rendering a [GuestPass]'s derived state. Precedence mirrors the redeem
+/// Worker: revoked → paused → expired → used-up → active.
 class GuestStatusChip extends StatelessWidget {
   const GuestStatusChip(this.pass, {super.key});
 
@@ -15,8 +15,10 @@ class GuestStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final colors = Theme.of(context).extension<AppColors>()!;
+    final primary = Theme.of(context).colorScheme.primary;
     final (label, color) = switch (pass) {
       _ when pass.revoked => (s.guestStatusRevoked, colors.muted),
+      _ when pass.paused => (s.guestStatusPaused, primary),
       _ when pass.expired => (s.guestStatusExpired, colors.danger),
       _ when pass.usedUp => (s.guestStatusUsedUp, colors.muted),
       _ => (s.guestStatusActive, colors.success),

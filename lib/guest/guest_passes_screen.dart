@@ -64,6 +64,16 @@ class _GuestPassesScreenState extends State<GuestPassesScreen> {
     await _run(() => _service.revoke(_uid, pass.id), s.guestRevoked);
   }
 
+  Future<void> _pause(GuestPass pass) async {
+    final s = AppStrings.of(context);
+    await _run(() => _service.pause(_uid, pass.id), s.guestPaused);
+  }
+
+  Future<void> _resume(GuestPass pass) async {
+    final s = AppStrings.of(context);
+    await _run(() => _service.resume(_uid, pass.id), s.guestResumed);
+  }
+
   Future<void> _delete(GuestPass pass) async {
     final s = AppStrings.of(context);
     final label = pass.label.isEmpty ? s.guestPassesTitle : pass.label;
@@ -188,6 +198,8 @@ class _GuestPassesScreenState extends State<GuestPassesScreen> {
                   pass: passes[i],
                   onShare: () => _share(passes[i]),
                   onRevoke: () => _revoke(passes[i]),
+                  onPause: () => _pause(passes[i]),
+                  onResume: () => _resume(passes[i]),
                   onDelete: () => _delete(passes[i]),
                 ),
               );
@@ -204,12 +216,16 @@ class _PassTile extends StatelessWidget {
     required this.pass,
     required this.onShare,
     required this.onRevoke,
+    required this.onPause,
+    required this.onResume,
     required this.onDelete,
   });
 
   final GuestPass pass;
   final VoidCallback onShare;
   final VoidCallback onRevoke;
+  final VoidCallback onPause;
+  final VoidCallback onResume;
   final VoidCallback onDelete;
 
   String _formatExpiry(int ms) {
@@ -266,11 +282,15 @@ class _PassTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      pass.recurring
-                          ? s.guestRepeatUntil(_formatExpiry(pass.expiresAt))
-                          : s.guestValidUntil(_formatExpiry(pass.expiresAt)),
+                      pass.noExpiry && !pass.recurring
+                          ? s.guestNoExpiry
+                          : pass.recurring
+                              ? s.guestRepeatUntil(_formatExpiry(pass.expiresAt))
+                              : s.guestValidUntil(_formatExpiry(pass.expiresAt)),
                       style: theme.textTheme.labelMedium,
-                      textDirection: TextDirection.ltr,
+                      textDirection: pass.noExpiry && !pass.recurring
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
                     ),
                     if (pass.schedule != null) ...[
                       const SizedBox(height: 2),
@@ -289,6 +309,21 @@ class _PassTile extends StatelessWidget {
                 tooltip: s.guestShare,
                 onPressed: onShare,
               ),
+              if (pass.pausable)
+                IconButton(
+                  icon: const Icon(Icons.pause_circle_outline_rounded),
+                  tooltip: s.guestPause,
+                  onPressed: onPause,
+                ),
+              if (pass.resumable)
+                IconButton(
+                  icon: Icon(
+                    Icons.play_circle_outline_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  tooltip: s.guestResume,
+                  onPressed: onResume,
+                ),
               if (pass.revocable)
                 IconButton(
                   icon: const Icon(Icons.block_rounded),

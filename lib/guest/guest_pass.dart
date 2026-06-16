@@ -7,8 +7,12 @@
 library;
 
 /// Lifecycle of a pass. Redemption (the `usedCount` bump) happens server-side
-/// in the `guestPass` Cloud Function; the app only flips `active` → `revoked`.
-enum GuestPassStatus { active, revoked }
+/// in the redeem Worker; the app flips the status:
+/// - `active`  — redeemable (subject to expiry / uses / schedule).
+/// - `paused`  — temporarily disabled by the owner. The link stops working but
+///   can be re-enabled (→ `active`) at any time. Reversible.
+/// - `revoked` — permanently killed by the owner. Kept for audit, not resumed.
+enum GuestPassStatus { active, paused, revoked }
 
 /// Weekly recurrence window for a recurring pass (e.g. a regular cleaner).
 ///
@@ -75,6 +79,12 @@ class GuestPass {
     this.schedule,
   });
 
+  /// Epoch ms sentinel for a permanent (no-time-limit) pass: 2100-01-01 UTC.
+  /// Stored as [expiresAt] so the existing `now > expiresAt` checks (app +
+  /// Worker) naturally treat it as never expiring — no special-casing needed in
+  /// the validity path, only in display ([noExpiry]).
+  static const int neverExpires = 4102444800000;
+
   /// Weekly recurrence window. Non-null ⇒ this is a recurring pass and
   /// [expiresAt] marks the date the recurrence stops repeating.
   final GuestSchedule? schedule;
@@ -112,11 +122,17 @@ class GuestPass {
 
   // --- Derived state (not stored) ---
 
+  /// A permanent pass — no time limit. Only pause / revoke / uses gate it.
+  bool get noExpiry => expiresAt >= neverExpires;
+
   bool get expired => DateTime.now().millisecondsSinceEpoch > expiresAt;
 
   bool get usedUp => maxUses > 0 && usedCount >= maxUses;
 
   bool get revoked => status == GuestPassStatus.revoked;
+
+  /// Temporarily disabled by the owner — link dead until resumed. Reversible.
+  bool get paused => status == GuestPassStatus.paused;
 
   /// For a recurring pass: whether the schedule window is open right now
   /// (best-effort, local device time). Always true for a one-shot pass.
@@ -127,9 +143,20 @@ class GuestPass {
   bool get valid =>
       status == GuestPassStatus.active && !expired && !usedUp && openNow;
 
-  /// Still live and worth revoking — active, not expired, not used up.
+  /// Still live and worth revoking — active or paused, not expired, not used up.
   /// Ignores the recurring window so the owner can revoke between windows.
-  bool get revocable => status == GuestPassStatus.active && !expired && !usedUp;
+  bool get revocable =>
+      (status == GuestPassStatus.active || status == GuestPassStatus.paused) &&
+      !expired &&
+      !usedUp;
+
+  /// Owner can pause it now — currently active and still live.
+  bool get pausable =>
+      status == GuestPassStatus.active && !expired && !usedUp;
+
+  /// Owner can resume it — currently paused and still live.
+  bool get resumable =>
+      status == GuestPassStatus.paused && !expired && !usedUp;
 
   /// Remaining opens, or `null` for an unlimited pass.
   int? get usesLeft =>
@@ -145,9 +172,11 @@ class GuestPass {
       expiresAt: (map['expiresAt'] ?? 0) as int,
       maxUses: (map['maxUses'] ?? 0) as int,
       usedCount: (map['usedCount'] ?? 0) as int,
-      status: map['status'] == 'revoked'
-          ? GuestPassStatus.revoked
-          : GuestPassStatus.active,
+      status: switch (map['status']) {
+        'revoked' => GuestPassStatus.revoked,
+        'paused' => GuestPassStatus.paused,
+        _ => GuestPassStatus.active,
+      },
       schedule: map['recurring'] == true && map['schedule'] is Map
           ? GuestSchedule.fromMap(map['schedule'] as Map)
           : null,
@@ -163,7 +192,11 @@ class GuestPass {
         'expiresAt': expiresAt,
         'maxUses': maxUses,
         'usedCount': usedCount,
-        'status': status == GuestPassStatus.revoked ? 'revoked' : 'active',
+        'status': switch (status) {
+          GuestPassStatus.revoked => 'revoked',
+          GuestPassStatus.paused => 'paused',
+          GuestPassStatus.active => 'active',
+        },
         // Recurrence is only written when present, keeping one-shot rows lean
         // and the `guest_passes` `.validate` rule unaffected.
         if (schedule != null) ...{
